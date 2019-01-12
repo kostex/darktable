@@ -379,7 +379,7 @@ entry selection {
 scale,
 scrollbar
 {
-  margin:0pt;
+  margin:5pt;
 }
 
 scale.trough.highlight,
@@ -399,7 +399,7 @@ scrollbar.contents.trough.highlight
 #iop-plugin-ui scrollbar slider,
 scrollbar slider
 {
-    border-color: transparent;
+    border-color: shade(@selected_bg_color, 1.7);
     background-color: @selected_bg_color;
 }
 
