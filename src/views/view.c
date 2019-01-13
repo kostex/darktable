@@ -1231,7 +1231,8 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
 
       if(img)
       {
-        if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay)
+//        if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay)
+        if (zoom != 1)
         {
           const double overlay_height = 0.26 * height;
           const int exif_offset = DT_PIXEL_APPLY_DPI(3);
@@ -1273,7 +1274,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           layout = pango_cairo_create_layout(cr);
           pango_font_description_set_absolute_size(desc, fontsize * PANGO_SCALE);
           pango_layout_set_font_description(layout, desc);
-          dt_gui_gtk_set_source_rgb(cr, outlinecol);
+          dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_THUMBNAIL_BORDER);
 
           cairo_move_to(cr, x0 + exif_offset, y0 + exif_offset);
           pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_MIDDLE);
