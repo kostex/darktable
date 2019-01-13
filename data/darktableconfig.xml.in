@@ -1,21 +1,56 @@
 <?xml version="1.0"?>
 <!DOCTYPE dtconfiglist SYSTEM "darktableconfig.dtd">
 <dtconfiglist>
-  <dtconfig>
+  <dtconfig prefs="gui" section="darktable">
+    <name>ktx/line_space</name>
+    <type>int</type>
+    <default>2</default>
+    <shortdescription>line spacing</shortdescription>
+    <longdescription>n.a.</longdescription>
+  </dtconfig>
+  <dtconfig prefs="gui" section="darktable">
+    <name>ktx/line_height</name>
+    <type>int</type>
+    <default>11</default>
+    <shortdescription>line height</shortdescription>
+    <longdescription>n.a.</longdescription>
+  </dtconfig>
+  <dtconfig prefs="gui" section="darktable">
+    <name>ktx/marker_size</name>
+    <type>float</type>
+    <default>0.3</default>
+    <shortdescription>marker size</shortdescription>
+    <longdescription>n.a.</longdescription>
+  </dtconfig>
+  <dtconfig prefs="gui" section="darktable">
+    <name>ktx/label_font_size</name>
+    <type>float</type>
+    <default>0.6</default>
+    <shortdescription>label font size</shortdescription>
+    <longdescription>n.a.</longdescription>
+  </dtconfig>
+  <dtconfig prefs="gui" section="darktable">
+    <name>ktx/value_font_size</name>
+    <type>float</type>
+    <default>0.6</default>
+    <shortdescription>value font size</shortdescription>
+    <longdescription>n.a.</longdescription>
+  </dtconfig>
+  <dtconfig prefs="gui" section="darktable">
     <name>bauhaus/scale</name>
     <type>float</type>
     <default>1.4</default>
     <shortdescription>widget scale</shortdescription>
     <longdescription>scaling factor for bauhaus widgets, will affect font size</longdescription>
   </dtconfig>
-  <dtconfig>
+  <dtconfig prefs="gui" section="darktable">
     <name>database</name>
     <type>string</type>
     <default>library.db</default>
     <shortdescription>database location</shortdescription>
     <longdescription>filename relative to ~/.config/darktable or starting with a slash (needs a restart).</longdescription>
   </dtconfig>
-  <dtconfig prefs="gui">
+  <dtconfig prefs="gui" section="darktable">
     <name>panel_width</name>
     <type>int</type>
     <default>350</default>

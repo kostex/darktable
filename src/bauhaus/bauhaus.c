@@ -441,11 +441,11 @@ void dt_bauhaus_init()
   darktable.bauhaus->popup_area = gtk_drawing_area_new();
   gtk_widget_set_name(darktable.bauhaus->popup_area, "bauhaus-popup");
 
-  darktable.bauhaus->line_space = 2;
-  darktable.bauhaus->line_height = 11;
-  darktable.bauhaus->marker_size = 0.3f;
-  darktable.bauhaus->label_font_size = 0.6f;
-  darktable.bauhaus->value_font_size = 0.6f;
+  darktable.bauhaus->line_space = dt_conf_get_int("ktx/line_space");
+  darktable.bauhaus->line_height = dt_conf_get_int("ktx/line_height");
+  darktable.bauhaus->marker_size = dt_conf_get_float("ktx/marker_size");
+  darktable.bauhaus->label_font_size = dt_conf_get_float("ktx/label_font_size");
+  darktable.bauhaus->value_font_size = dt_conf_get_float("ktx/value_font_size");
   g_strlcpy(darktable.bauhaus->label_font, "sans", sizeof(darktable.bauhaus->label_font));
   g_strlcpy(darktable.bauhaus->value_font, "sans", sizeof(darktable.bauhaus->value_font));
 
@@ -1207,7 +1207,7 @@ static void dt_bauhaus_draw_indicator(dt_bauhaus_widget_t *w, float pos, cairo_t
   set_color(cr, darktable.bauhaus->color_fg);
   cairo_translate(cr, (l + pos * (r - l)) * wd,
                   get_line_height() * (darktable.bauhaus->label_font_size + 0.25f));
-  cairo_scale(cr, 2.0f, -2.0f);
+  cairo_scale(cr, 1.0f, -1.0f);
   draw_equilateral_triangle(cr, ht * get_marker_size());
   cairo_fill_preserve(cr);
   cairo_set_line_width(cr, 1.);
