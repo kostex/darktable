@@ -1207,7 +1207,7 @@ static void dt_bauhaus_draw_indicator(dt_bauhaus_widget_t *w, float pos, cairo_t
   set_color(cr, darktable.bauhaus->color_fg);
   cairo_translate(cr, (l + pos * (r - l)) * wd,
                   get_line_height() * (darktable.bauhaus->label_font_size + 0.25f));
-  cairo_scale(cr, 1.0f, -1.0f);
+  cairo_scale(cr, 2.0f, -2.0f);
   draw_equilateral_triangle(cr, ht * get_marker_size());
   cairo_fill_preserve(cr);
   cairo_set_line_width(cr, 1.);
