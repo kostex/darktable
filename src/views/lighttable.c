@@ -80,8 +80,10 @@ typedef enum dt_lighttable_layout_t
   DT_LAYOUT_LAST = 2
 } dt_lighttable_layout_t;
 
-static gboolean star_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
-                                        GdkModifierType modifier, gpointer data);
+static gboolean rating_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                          GdkModifierType modifier, gpointer data);
+static gboolean colorlabels_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                               GdkModifierType modifier, gpointer data);
 static gboolean go_up_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
                                          GdkModifierType modifier, gpointer data);
 static gboolean go_down_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
@@ -95,6 +97,12 @@ static void _update_collected_images(dt_view_t *self);
 
 /* returns TRUE if lighttable is using the custom order filter */
 static gboolean _is_custom_image_order_actif(dt_view_t *self);
+/* returns TRUE if lighttable is using the custom order filter */
+static gboolean _is_rating_order_actif(dt_view_t *self);
+/* returns TRUE if lighttable is using the custom order filter */
+static gboolean _is_colorlabels_order_actif(dt_view_t *self);
+/* register for redraw only the selected images */
+static void _redraw_selected_images(dt_view_t *self);
 
 /**
  * this organises the whole library:
@@ -733,21 +741,25 @@ end_query_cache:
             if(current_row  == (int)(max_rows-1.5) && lib->key_jump_offset == iir)
             {
               // going DOWN from last row
+              lib->force_expose_all = TRUE;
               move_view(lib, DIRECTION_DOWN);
             }
             else if(current_row  == 0 && lib->key_jump_offset == iir*-1)
             {
               // going UP from first row
+              lib->force_expose_all = TRUE;
               move_view(lib, DIRECTION_UP);
             }
             else if(current_row == (int)(max_rows-1.5) && current_col ==  0 && lib->key_jump_offset == 1)
             {
               // going RIGHT from last visible
+              lib->force_expose_all = TRUE;
               move_view(lib, DIRECTION_DOWN);
             }
             else if(current_row == 0 && current_col ==  1 && lib->key_jump_offset == -1)
             {
               // going LEFT from first visible
+              lib->force_expose_all = TRUE;
               move_view(lib, DIRECTION_UP);
             }
 
@@ -824,7 +836,7 @@ end_query_cache:
             pi == col && pj == row ? img_pointerx : -1,
             pi == col && pj == row ? img_pointery : -1, FALSE, FALSE);
 
-          // if thumb is missing, record it for expose int next round
+          // if thumb is missing, record it for expose in next round
           if(thumb_missed)
             g_hash_table_add(lib->thumbs_table, (gpointer)&id);
           else
@@ -1309,7 +1321,7 @@ static int expose_zoomable(dt_view_t *self, cairo_t *cr, int32_t width, int32_t 
           const int thumb_missed = dt_view_image_expose(&(lib->image_over), id, cr, wd, zoom == 1 ? height : ht, zoom,
                                                         img_pointerx, img_pointery, FALSE, FALSE);
 
-          // if thumb is missing, record it for expose int next round
+          // if thumb is missing, record it for expose in next round
           if(thumb_missed)
             g_hash_table_add(lib->thumbs_table, (gpointer)&id);
           else
@@ -1693,8 +1705,8 @@ static gboolean select_single_callback(GtkAccelGroup *accel_group, GObject *acce
   return TRUE;
 }
 
-static gboolean star_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
-                                        GdkModifierType modifier, gpointer data)
+static gboolean rating_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                          GdkModifierType modifier, gpointer data)
 {
   dt_view_t *self = darktable.view_manager->proxy.lighttable.view;
   int num = GPOINTER_TO_INT(data);
@@ -1704,7 +1716,10 @@ static gboolean star_key_accel_callback(GtkAccelGroup *accel_group, GObject *acc
   dt_library_t *lib = (dt_library_t *)self->data;
 
   // needed as we can have a reordering of the pictures
-  lib->force_expose_all = TRUE;
+  if(_is_rating_order_actif(self))
+    lib->force_expose_all = TRUE;
+  else
+    _redraw_selected_images(self);
 
   if(lib->using_arrows)
   {
@@ -1766,6 +1781,23 @@ static gboolean star_key_accel_callback(GtkAccelGroup *accel_group, GObject *acc
       dt_control_set_mouse_over_id(mouse_over_id);
     }
   }
+  return TRUE;
+}
+
+static gboolean colorlabels_key_accel_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                               GdkModifierType modifier, gpointer data)
+{
+  dt_view_t *self = darktable.view_manager->proxy.lighttable.view;
+  dt_library_t *lib = (dt_library_t *)self->data;
+
+  // needed as we can have a reordering of the pictures
+  if(_is_colorlabels_order_actif(self))
+    lib->force_expose_all = TRUE;
+  else
+    _redraw_selected_images(self);
+
+  dt_colorlabels_key_accel_callback(NULL, NULL, 0, 0, data);
+
   return TRUE;
 }
 
@@ -2497,6 +2529,14 @@ void init_key_accels(dt_view_t *self)
 {
   // Initializing accelerators
 
+  // Color labels keys
+  dt_accel_register_view(self, NC_("accel", "color red"), GDK_KEY_F1, 0);
+  dt_accel_register_view(self, NC_("accel", "color yellow"), GDK_KEY_F2, 0);
+  dt_accel_register_view(self, NC_("accel", "color green"), GDK_KEY_F3, 0);
+  dt_accel_register_view(self, NC_("accel", "color blue"), GDK_KEY_F4, 0);
+  dt_accel_register_view(self, NC_("accel", "color purple"), GDK_KEY_F5, 0);
+  dt_accel_register_view(self, NC_("accel", "clear color labels"), 0, 0);
+
   // Rating keys
   dt_accel_register_view(self, NC_("accel", "rate 0"), GDK_KEY_0, 0);
   dt_accel_register_view(self, NC_("accel", "rate 1"), GDK_KEY_1, 0);
@@ -2534,20 +2574,34 @@ void connect_key_accels(dt_view_t *self)
 {
   GClosure *closure;
 
+  // Color labels keys
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(0), NULL);
+  dt_accel_connect_view(self, "color red", closure);
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(1), NULL);
+  dt_accel_connect_view(self, "color yellow", closure);
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(2), NULL);
+  dt_accel_connect_view(self, "color green", closure);
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(3), NULL);
+  dt_accel_connect_view(self, "color blue", closure);
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(4), NULL);
+  dt_accel_connect_view(self, "color purple", closure);
+  closure = g_cclosure_new(G_CALLBACK(colorlabels_key_accel_callback), GINT_TO_POINTER(5), NULL);
+  dt_accel_connect_view(self, "clear color labels", closure);
+
   // Rating keys
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_DESERT), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_DESERT), NULL);
   dt_accel_connect_view(self, "rate 0", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_1), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_1), NULL);
   dt_accel_connect_view(self, "rate 1", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_2), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_2), NULL);
   dt_accel_connect_view(self, "rate 2", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_3), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_3), NULL);
   dt_accel_connect_view(self, "rate 3", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_4), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_4), NULL);
   dt_accel_connect_view(self, "rate 4", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_5), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_STAR_5), NULL);
   dt_accel_connect_view(self, "rate 5", closure);
-  closure = g_cclosure_new(G_CALLBACK(star_key_accel_callback), GINT_TO_POINTER(DT_VIEW_REJECT), NULL);
+  closure = g_cclosure_new(G_CALLBACK(rating_key_accel_callback), GINT_TO_POINTER(DT_VIEW_REJECT), NULL);
   dt_accel_connect_view(self, "rate reject", closure);
 
   // Navigation keys
@@ -2712,7 +2766,7 @@ void gui_init(dt_view_t *self)
   g_signal_connect(G_OBJECT(display_profile), "value-changed", G_CALLBACK(display_profile_callback), NULL);
 }
 
-static gboolean _is_custom_image_order_actif(dt_view_t *self)
+static gboolean _is_order_actif(dt_view_t *self, dt_collection_sort_t sort)
 {
   if (darktable.gui)
   {
@@ -2723,7 +2777,7 @@ static gboolean _is_custom_image_order_actif(dt_view_t *self)
     // only if custom image order is selected
     dt_view_t *current_view = darktable.view_manager->current_view;
     if (layout == DT_LAYOUT_FILEMANAGER
-        && darktable.collection->params.sort == DT_COLLECTION_SORT_CUSTOM_ORDER
+        && darktable.collection->params.sort == sort
         && current_view
         && current_view->view(self) == DT_VIEW_LIGHTTABLE)
     {
@@ -2732,6 +2786,35 @@ static gboolean _is_custom_image_order_actif(dt_view_t *self)
   }
 
   return FALSE;
+}
+
+static gboolean _is_custom_image_order_actif(dt_view_t *self)
+{
+  return _is_order_actif(self, DT_COLLECTION_SORT_CUSTOM_ORDER);
+}
+
+static gboolean _is_rating_order_actif(dt_view_t *self)
+{
+  return _is_order_actif(self, DT_COLLECTION_SORT_RATING);
+}
+
+static gboolean _is_colorlabels_order_actif(dt_view_t *self)
+{
+  return _is_order_actif(self, DT_COLLECTION_SORT_COLOR);
+}
+
+static void _redraw_selected_images(dt_view_t *self)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  sqlite3_stmt *stmt;
+
+  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "SELECT imgid FROM main.selected_images", -1, &stmt, NULL);
+  while(sqlite3_step(stmt) == SQLITE_ROW)
+  {
+    const int imgid  = sqlite3_column_int(stmt, 0);
+    g_hash_table_add(lib->thumbs_table, (gpointer)&imgid);
+  }
+  sqlite3_finalize(stmt);
 }
 
 static void _register_custom_image_order_drag_n_drop(dt_view_t *self)
