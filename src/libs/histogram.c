@@ -421,10 +421,10 @@ static gboolean _lib_histogram_draw_callback(GtkWidget *widget, cairo_t *crf, gp
   cairo_move_to(cr, .02 * width, .98 * height - ink.height - ink.y);
   cairo_save(cr);
   cairo_set_line_width(cr, DT_PIXEL_APPLY_DPI(2.0));
-  cairo_set_source_rgba(cr, 1, 1, 1, 0.3);
+  cairo_set_source_rgba(cr, 0, 0, 0, 1);
   pango_cairo_layout_path(cr, layout);
   cairo_stroke_preserve(cr);
-  cairo_set_source_rgb(cr, .25, .25, .25);
+  cairo_set_source_rgb(cr, 1, 1, 1);
   cairo_fill(cr);
   cairo_restore(cr);
 
