@@ -45,11 +45,13 @@ typedef struct dt_lib_history_t
   GtkWidget *create_button;
 //   GtkWidget *apply_button;
   GtkWidget *compress_button;
+  GtkWidget *ktx_delete_button;
   gboolean record_undo;
 } dt_lib_history_t;
 
 /* compress history stack */
 static void _lib_history_compress_clicked_callback(GtkWidget *widget, gpointer user_data);
+static void _lib_history_ktx_delete_clicked_callback(GtkWidget *widget, gpointer user_data);
 static void _lib_history_button_clicked_callback(GtkWidget *widget, gpointer user_data);
 static void _lib_history_create_style_button_clicked_callback(GtkWidget *widget, gpointer user_data);
 /* signal callback for history change */
@@ -110,10 +112,15 @@ void gui_init(dt_lib_module_t *self)
 
   GtkWidget *hhbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, DT_PIXEL_APPLY_DPI(5));
 
-  d->compress_button = gtk_button_new_with_label(_("compress history stack"));
+  d->compress_button = gtk_button_new_with_label(_("compress stack"));
   gtk_label_set_xalign (GTK_LABEL(gtk_bin_get_child(GTK_BIN(d->compress_button))), 0.0f);
   gtk_widget_set_tooltip_text(d->compress_button, _("create a minimal history stack which produces the same image"));
   g_signal_connect(G_OBJECT(d->compress_button), "clicked", G_CALLBACK(_lib_history_compress_clicked_callback), NULL);
+
+  d->ktx_delete_button = gtk_button_new_with_label(_("delete stack"));
+  gtk_label_set_xalign (GTK_LABEL(gtk_bin_get_child(GTK_BIN(d->ktx_delete_button))), 0.0f);
+  gtk_widget_set_tooltip_text(d->ktx_delete_button, _("delete history stack"));
+  g_signal_connect(G_OBJECT(d->ktx_delete_button), "clicked", G_CALLBACK(_lib_history_ktx_delete_clicked_callback), NULL);
 
   /* add toolbar button for creating style */
   d->create_button = dtgtk_button_new(dtgtk_cairo_paint_styles, CPF_DO_NOT_USE_BORDER, NULL);
@@ -124,6 +131,7 @@ void gui_init(dt_lib_module_t *self)
 
   /* add buttons to buttonbox */
   gtk_box_pack_start(GTK_BOX(hhbox), d->compress_button, TRUE, TRUE, 0);
+  gtk_box_pack_start(GTK_BOX(hhbox), d->ktx_delete_button, TRUE, TRUE, 0);
   gtk_box_pack_start(GTK_BOX(hhbox), d->create_button, FALSE, FALSE, 0);
 
   /* add history list and buttonbox to widget */
@@ -774,6 +782,25 @@ static void _lib_history_compress_clicked_callback(GtkWidget *widget, gpointer u
 
   dt_dev_reload_history_items(darktable.develop);
   dt_dev_modulegroups_set(darktable.develop, dt_dev_modulegroups_get(darktable.develop));
+}
+
+static void _lib_history_ktx_delete_clicked_callback(GtkWidget *widget, gpointer user_data)
+{
+  const int imgid = darktable.develop->image_storage.id;
+  if(!imgid) return;
+  // make sure the right history is in there:
+  dt_dev_write_history(darktable.develop);
+  sqlite3_stmt *stmt;
+
+  // remove all modules
+  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "DELETE FROM main.history WHERE imgid = ?1", -1, &stmt, NULL);
+  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  // load new history and write it back to ensure that all history are properly numbered without a gap
+  dt_dev_reload_history_items(darktable.develop);
+  dt_dev_write_history(darktable.develop);
 }
 
 static void _lib_history_button_clicked_callback(GtkWidget *widget, gpointer user_data)
