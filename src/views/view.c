@@ -1222,6 +1222,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
       }
 
       const gboolean extended_thumb_overlay = dt_conf_get_bool("plugins/lighttable/extended_thumb_overlay");
+      const gboolean ktx_show_on_all = dt_conf_get_bool("ktx/show_exif_on_all_thumbs");
       float x, y;
       if(zoom != 1)
         y = (extended_thumb_overlay ? 0.93 : 0.9) * height;
@@ -1231,8 +1232,8 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
 
       if(img)
       {
-//        if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay)
-        if (zoom != 1)
+/*      if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay) */
+        if (zoom != 1 && extended_thumb_overlay && ((!darktable.gui->show_overlays || imgsel == imgid) || ktx_show_on_all))
         {
           const double overlay_height = 0.26 * height;
           const int exif_offset = DT_PIXEL_APPLY_DPI(3);
