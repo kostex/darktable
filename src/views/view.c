@@ -1087,7 +1087,10 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
         scale = fminf((width - 2 * tb) / (float)buf.width, (height - 2 * tb) / (float)buf.height);
       }
       else
-        scale = fminf(width * imgwd / (float)buf.width, height * imgwd / (float)buf.height);
+        if (buf.height < buf.width)
+          scale = fminf(width * imgwd / (float)buf.width, height * imgwd / (float)buf.height);
+        else
+          scale = fminf(width * imgwd / (float)buf.width, height * imgwd / (float)buf.height) / 1.5;
     }
 
     // draw centered and fitted:
@@ -1096,7 +1099,10 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
     if (image_only) // in this case we want to display the picture exactly at (px, py)
       cairo_translate(cr, px, py);
     else
-      cairo_translate(cr, width / 2.0, height / 2.0);
+      if (zoom == 1)
+        cairo_translate(cr, width / 2.0, height / 2.0);
+      else
+        cairo_translate(cr, width / 2.0, height / 3.0);
 
     cairo_scale(cr, scale, scale);
 
@@ -1206,7 +1212,6 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
 
       if(img)
       {
-/*      if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay) */
         if (zoom != 1 && extended_thumb_overlay && ((!darktable.gui->show_overlays || imgsel == imgid) || ktx_show_on_all))
         {
           const double overlay_height = 0.33 * height;
@@ -1236,7 +1241,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           cairo_line_to(cr, x0 + radius, y1);
           cairo_curve_to(cr, x0 + off1, y1, x0, y1 - off1, x0, y1 - radius);
           cairo_close_path(cr);
-          dt_gui_gtk_set_source_rgba(cr, bgcol, 0.9);
+          dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_KTX_1);
           cairo_fill_preserve(cr);
           cairo_set_line_width(cr, 0.005 * width);
           dt_gui_gtk_set_source_rgb(cr, outlinecol);
@@ -1245,11 +1250,11 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           // some exif data
           PangoLayout *layout;
           PangoFontDescription *desc = pango_font_description_copy_static(darktable.bauhaus->pango_font_desc);
-          pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
+//          pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
           layout = pango_cairo_create_layout(cr);
           pango_font_description_set_absolute_size(desc, fontsize * PANGO_SCALE);
           pango_layout_set_font_description(layout, desc);
-          dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_THUMBNAIL_BORDER);
+          dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_THUMBNAIL_FONT);
 
           cairo_move_to(cr, x0 + exif_offset, y0 + exif_offset);
           pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_MIDDLE);
