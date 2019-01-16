@@ -1192,8 +1192,8 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
       float r1, r2;
       if(zoom != 1)
       {
-        r1 = 0.05 * width;
-        r2 = 0.022 * width;
+        r1 = 0.05 * width * 0.8;
+        r2 = 0.022 * width * 0.8;
       }
       else
       {
@@ -1241,7 +1241,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           cairo_line_to(cr, x0 + radius, y1);
           cairo_curve_to(cr, x0 + off1, y1, x0, y1 - off1, x0, y1 - radius);
           cairo_close_path(cr);
-          dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_KTX_1);
+          dt_gui_gtk_set_source_rgba(cr, DT_GUI_COLOR_KTX_1, 1.0);
           cairo_fill_preserve(cr);
           cairo_set_line_width(cr, 0.005 * width);
           dt_gui_gtk_set_source_rgb(cr, outlinecol);
@@ -1283,7 +1283,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
         for(int k = 0; k < 5; k++)
         {
           if(zoom != 1)
-            x = (0.26 + k * 0.12) * width;
+            x = (0.26 + k * 0.12) * width * 0.8;
           else
             x = (.08 + k * 0.04) * fscale;
 
