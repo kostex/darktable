@@ -979,53 +979,27 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
     dt_gui_gtk_set_source_rgb(cr, outlinecol);
     cairo_stroke(cr);
 
-    if(img)
+/*    if(img)
     {
       PangoLayout *layout;
-      PangoRectangle ink;
+      const int exif_offset = DT_PIXEL_APPLY_DPI(3);
+      layout = pango_cairo_create_layout(cr);
       PangoFontDescription *desc = pango_font_description_copy_static(darktable.bauhaus->pango_font_desc);
       pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
-      const int fontsize = 0.20 * width;
+      const int fontsize = 0.07 * width;
       pango_font_description_set_absolute_size(desc, fontsize * PANGO_SCALE);
-      layout = pango_cairo_create_layout(cr);
       pango_layout_set_font_description(layout, desc);
-      const char *ext = img->filename + strlen(img->filename);
-      while(ext > img->filename && *ext != '.') ext--;
-      ext++;
-      dt_gui_gtk_set_source_rgb(cr, fontcol);
+      dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_THUMBNAIL_BORDER);
 
-      char* upcase_ext = g_ascii_strup(ext, -1);  // extension in capital letters to avoid character descenders
+      cairo_move_to(cr, x0 + exif_offset, y0 + exif_offset);
+      pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_MIDDLE);
+      pango_layout_set_width(layout, (int)(PANGO_SCALE * (width - 2 * exif_offset)));
+      pango_layout_set_text(layout, img->filename, -1);
+      pango_cairo_show_layout(cr, layout);
 
-      if (buf.height > buf.width)
-      {
-        int max_chr_width = 0;
-        for (int i = 0; upcase_ext[i] != 0; i++)
-        {
-          pango_layout_set_text(layout, &upcase_ext[i], 1);
-          pango_layout_get_pixel_extents(layout, &ink, NULL);
-          max_chr_width = MAX(max_chr_width, ink.width);
-        }
-
-        for (int i = 0, yoffs = fontsize;  upcase_ext[i] != 0; i++,  yoffs -= fontsize)
-        {
-          pango_layout_set_text(layout, &upcase_ext[i], 1);
-          pango_layout_get_pixel_extents(layout, &ink, NULL);
-          cairo_move_to(cr, .025 * width - ink.x + (max_chr_width - ink.width) / 2, .2 * height - yoffs);
-          pango_cairo_show_layout(cr, layout);
-        }
-      }
-      else
-      {
-        pango_layout_set_text(layout, upcase_ext, -1);
-        pango_layout_get_pixel_extents(layout, &ink, NULL);
-        cairo_move_to(cr, .025 * width - ink.x, .2 * height - fontsize);
-        pango_cairo_show_layout(cr, layout);
-      }
-      g_free(upcase_ext);
       pango_font_description_free(desc);
       g_object_unref(layout);
-
-    }
+    } */
   }
 
   // if we got a different mip than requested, and it's not a skull (8x8 px), we count
@@ -1235,7 +1209,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
 /*      if (zoom != 1 && (!darktable.gui->show_overlays || imgsel == imgid) && extended_thumb_overlay) */
         if (zoom != 1 && extended_thumb_overlay && ((!darktable.gui->show_overlays || imgsel == imgid) || ktx_show_on_all))
         {
-          const double overlay_height = 0.26 * height;
+          const double overlay_height = 0.33 * height;
           const int exif_offset = DT_PIXEL_APPLY_DPI(3);
           const int fontsize = 0.18 * overlay_height;
           const double line_offs = 1.15 * fontsize;
@@ -1262,7 +1236,7 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           cairo_line_to(cr, x0 + radius, y1);
           cairo_curve_to(cr, x0 + off1, y1, x0, y1 - off1, x0, y1 - radius);
           cairo_close_path(cr);
-          dt_gui_gtk_set_source_rgb(cr, bgcol);
+          dt_gui_gtk_set_source_rgba(cr, bgcol, 0.9);
           cairo_fill_preserve(cr);
           cairo_set_line_width(cr, 0.005 * width);
           dt_gui_gtk_set_source_rgb(cr, outlinecol);
@@ -1282,8 +1256,15 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
           pango_layout_set_width(layout, (int)(PANGO_SCALE * (width - 2 * exif_offset)));
           pango_layout_set_text(layout, img->filename, -1);
           pango_cairo_show_layout(cr, layout);
-          char exifline[50];
+
           cairo_move_to(cr, x0 + exif_offset, y0 + exif_offset + line_offs);
+          pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_MIDDLE);
+          pango_layout_set_width(layout, (int)(PANGO_SCALE * (width - 2 * exif_offset)));
+          pango_layout_set_text(layout, img->exif_datetime_taken, -1);
+          pango_cairo_show_layout(cr, layout);
+
+          char exifline[50];
+          cairo_move_to(cr, x0 + exif_offset, y0 + exif_offset + line_offs*2);
           dt_image_print_exif(img, exifline, sizeof(exifline));
           pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
           pango_layout_set_text(layout, exifline, -1);
@@ -1563,23 +1544,26 @@ int dt_view_image_expose(dt_view_image_over_t *image_over, uint32_t imgid, cairo
     PangoFontDescription *desc = pango_font_description_copy_static(darktable.bauhaus->pango_font_desc);
     pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
     layout = pango_cairo_create_layout(cr);
-    const int fontsize = 0.025 * fscale;
+    const int fontsize = 0.015 * fscale;
     pango_font_description_set_absolute_size(desc, fontsize * PANGO_SCALE);
     pango_layout_set_font_description(layout, desc);
     cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
     cairo_set_line_width(cr, DT_PIXEL_APPLY_DPI(2.0));
-    cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 
-    cairo_move_to(cr, .02 * fscale, .04 * fscale - fontsize);
+    cairo_move_to(cr, .02 * fscale, .02 * fscale - fontsize);
     pango_layout_set_text(layout, img->filename, -1);
     pango_cairo_layout_path(cr, layout);
+    cairo_move_to(cr, .02 * fscale, .04 * fscale - fontsize);
+    pango_layout_set_text(layout, img->exif_datetime_taken, -1);
+    pango_cairo_layout_path(cr, layout);
     char exifline[50];
-    cairo_move_to(cr, .02 * fscale, .08 * fscale - fontsize);
+    cairo_move_to(cr, .02 * fscale, .06 * fscale - fontsize);
     dt_image_print_exif(img, exifline, sizeof(exifline));
     pango_layout_set_text(layout, exifline, -1);
     pango_cairo_layout_path(cr, layout);
     cairo_stroke_preserve(cr);
-    cairo_set_source_rgb(cr, .7, .7, .7);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_fill(cr);
     pango_font_description_free(desc);
     g_object_unref(layout);
