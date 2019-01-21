@@ -877,8 +877,8 @@ int dt_view_process_image_over(dt_view_image_over_t what, int active, cairo_t *c
   float r1, r2;
   if(zoom != 1)
   {
-    r1 = 0.05 * width;
-    r2 = 0.022 * width;
+    r1 = 0.05 * width * 0.7;
+    r2 = 0.022 * width * 0.7;
   }
   else
   {
@@ -903,7 +903,7 @@ int dt_view_process_image_over(dt_view_image_over_t what, int active, cairo_t *c
     case DT_VIEW_STAR_4:
     case DT_VIEW_STAR_5:
       if(zoom != 1)
-        x = (0.26 + (what - DT_VIEW_STAR_1) * 0.12) * width;
+        x = (0.26 + (what - DT_VIEW_STAR_1) * 0.12) * width * 0.7;
       else
         x = (.08 + (what - DT_VIEW_STAR_1) * 0.04) * fscale;
 

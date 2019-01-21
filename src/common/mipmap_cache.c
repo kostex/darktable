@@ -116,11 +116,17 @@ static inline void dead_image_8(dt_mipmap_buffer_t *buf)
   dsc->iscale = 1.0f;
   dsc->color_space = DT_COLORSPACE_DISPLAY;
   assert(dsc->size > 64 * sizeof(uint32_t));
-  const uint32_t X = 0xffffffffu;
+  const uint32_t X = 0x33000040u;
   const uint32_t o = 0u;
   const uint32_t image[]
-      = { o, o, o, o, o, o, o, o, o, o, X, X, X, X, o, o, o, X, o, X, X, o, X, o, o, X, X, X, X, X, X, o,
-          o, o, X, o, o, X, o, o, o, o, o, o, o, o, o, o, o, o, X, X, X, X, o, o, o, o, o, o, o, o, o, o };
+      = { o, o, o, o, o, o, o, o,
+          o, X, o, o, o, o, X, o,
+          o, o, X, o, o, X, o, o,
+          o, o, o, X, X, o, o, o,
+          o, o, o, X, X, o, o, o,
+          o, o, X, o, o, X, o, o,
+          o, X, o, o, o, o, X, o,
+          o, o, o, o, o, o, o, o };
   memcpy(buf->buf, image, sizeof(uint32_t) * 64);
 }
 
