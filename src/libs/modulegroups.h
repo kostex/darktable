@@ -31,6 +31,7 @@ typedef enum dt_lib_modulegroup_t
   DT_MODULEGROUP_COLOR,
   DT_MODULEGROUP_CORRECT,
   DT_MODULEGROUP_EFFECT,
+  DT_MODULEGROUP_ALL,
 
   /* don't touch the following */
   DT_MODULEGROUP_SIZE,

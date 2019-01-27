@@ -1642,6 +1642,23 @@ void dtgtk_cairo_paint_modulegroup_effect(cairo_t *cr, gint x, gint y, gint w, g
   cairo_stroke(cr);
 }
 
+void dtgtk_cairo_paint_modulegroup_all(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
+{
+  gint s = w < h ? w : h;
+  cairo_translate(cr, x + (w / 2.) - (s / 2.), y + (h / 2.) - (s / 2.));
+  cairo_scale(cr, s, s);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  cairo_set_line_width(cr, 0.1);
+
+  
+  cairo_move_to(cr, 0.2, 0.8);
+  cairo_line_to(cr, 0.5, 0.2);
+  cairo_line_to(cr, 0.8, 0.8);
+  cairo_move_to(cr, 0.3, 0.6);
+  cairo_line_to(cr, 0.7, 0.6);
+  cairo_stroke(cr);
+}
+
 void dtgtk_cairo_paint_map_pin(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data)
 {
   gint s = w < h ? w : h;

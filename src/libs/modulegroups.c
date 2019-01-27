@@ -168,6 +168,12 @@ void gui_init(dt_lib_module_t *self)
   g_signal_connect(d->buttons[g_index], "toggled", G_CALLBACK(_lib_modulegroups_toggle), self);
   gtk_widget_set_tooltip_text(d->buttons[g_index], _("effects group"));
 
+  /* all */
+  d->buttons[DT_MODULEGROUP_ALL] = dtgtk_togglebutton_new(dtgtk_cairo_paint_modulegroup_all, pf, NULL);
+  g_signal_connect(d->buttons[DT_MODULEGROUP_ALL], "toggled", G_CALLBACK(_lib_modulegroups_toggle),
+                   self);
+  gtk_widget_set_tooltip_text(d->buttons[DT_MODULEGROUP_ALL], _("all enabled modules"));
+
   /* minimize table height before adding the buttons */
   gtk_widget_set_size_request(self->widget, -1, -1);
 
@@ -233,6 +239,8 @@ static gboolean _lib_modulegroups_test_internal(dt_lib_module_t *self, uint32_t 
   else if(iop_group & IOP_GROUP_CORRECT && group == DT_MODULEGROUP_CORRECT)
     return TRUE;
   else if(iop_group & IOP_GROUP_EFFECT && group == DT_MODULEGROUP_EFFECT)
+    return TRUE;
+  else if(iop_group & IOP_GROUP_ALL && group == DT_MODULEGROUP_ALL)
     return TRUE;
   return FALSE;
 }

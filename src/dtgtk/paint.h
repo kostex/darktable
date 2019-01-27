@@ -158,6 +158,8 @@ void dtgtk_cairo_paint_modulegroup_color(cairo_t *cr, gint x, gint y, gint w, gi
 void dtgtk_cairo_paint_modulegroup_correct(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data);
 /** paint effect modulegroup icon */
 void dtgtk_cairo_paint_modulegroup_effect(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data);
+/** paint all modulegroup icon */
+void dtgtk_cairo_paint_modulegroup_all(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data);
 
 /** paint the pin for map thumbnails */
 void dtgtk_cairo_paint_map_pin(cairo_t *cr, gint x, gint y, gint w, gint h, gint flags, void *data);
