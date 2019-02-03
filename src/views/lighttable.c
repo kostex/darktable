@@ -261,7 +261,6 @@ static void move_view(dt_library_t *lib, dt_lighttable_direction_t dir)
     case DIRECTION_UP:
     {
       if(lib->offset >= 1) lib->offset = lib->offset - iir;
-      while(lib->offset < 0) lib->offset += iir;
     }
     break;
     case DIRECTION_DOWN:
@@ -273,7 +272,7 @@ static void move_view(dt_library_t *lib, dt_lighttable_direction_t dir)
     case DIRECTION_PGUP:
     {
       lib->offset -= (lib->max_rows - 1) * iir;
-      while(lib->offset < 0) lib->offset += iir;
+      while(lib->offset <= -iir) lib->offset += iir;
     }
     break;
     case DIRECTION_PGDOWN:
@@ -336,7 +335,6 @@ static void zoom_around_image(dt_library_t *lib, double pointerx, double pointer
   lib->offset = zoom_anchor_image - pi - (pj * new_images_in_row);
   lib->first_visible_filemanager = lib->offset;
   lib->offset_changed = TRUE;
-  lib->images_in_row = new_images_in_row;
 }
 
 static void _view_lighttable_collection_listener_callback(gpointer instance, gpointer user_data)
@@ -466,9 +464,15 @@ static void _update_collected_images(dt_view_t *self)
 static void _set_position(dt_view_t *self, uint32_t pos)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
-  lib->first_visible_filemanager = lib->first_visible_zoomable = lib->offset = pos;
-  lib->offset_changed = TRUE;
-  dt_control_queue_redraw_center();
+  // only reset position when not already with a changed offset, this is because if the offset is
+  // already changed it means that we are about to change the display (zoom in or out for example).
+  // And in this case a new offset is already positioned and we don't want to reset it.
+  if(!lib->offset_changed)
+  {
+    lib->first_visible_filemanager = lib->first_visible_zoomable = lib->offset = pos;
+    lib->offset_changed = TRUE;
+    dt_control_queue_redraw_center();
+  }
 }
 
 static uint32_t _get_position(dt_view_t *self)
@@ -691,12 +695,6 @@ static int expose_filemanager(dt_view_t *self, cairo_t *cr, int32_t width, int32
   /* do we have a main query collection statement */
   if(!lib->statements.main_query) return 0;
 
-  /* safety check added to be able to work with zoom slider. The
-  * communication between zoom slider and lighttable should be handled
-  * differently (i.e. this is a clumsy workaround) */
-  if(lib->images_in_row != iir && lib->first_visible_filemanager < 0)
-    lib->offset = lib->first_visible_filemanager = 0;
-
   int32_t offset = lib->offset
       = MIN(lib->first_visible_filemanager, ((lib->collection_count + iir - 1) / iir - 1) * iir);
 
@@ -863,7 +861,7 @@ end_query_cache:
 
             // if we have moved the view we need to expose again all pictures as the first row or last one need to
             // be redrawn properly. for this we just record the missing thumbs.
-            if(lib->offset_changed && mouse_over_id != -1)
+            if(offset_changed && mouse_over_id != -1)
             {
               missing += iir;
             }
@@ -1125,8 +1123,6 @@ after_drawing:
     free(imgids);
   }
 
-  lib->offset_changed = FALSE;
-
   free(query_ids);
   // oldpan = pan;
   if(darktable.unmuted & DT_DEBUG_CACHE) dt_mipmap_cache_print(darktable.mipmap_cache);
@@ -1145,6 +1141,8 @@ after_drawing:
     darktable.gui->center_tooltip = 0;
     gtk_widget_set_tooltip_text(dt_ui_center(darktable.gui->ui), "");
   }
+
+  lib->offset_changed = FALSE;
 
   return missing;
 }
@@ -1917,11 +1915,13 @@ void expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t height, int32_t
   }
 
   if(layout != DT_LIGHTTABLE_LAYOUT_ZOOMABLE)
-  { // file manager
+  {
+    // file manager
     lib->activate_on_release = DT_VIEW_ERR;
   }
   else
-  { // zoomable lt
+  {
+    // zoomable lt
     // If the mouse button was clicked on a control element and we are now
     // leaving that element, or the mouse was clicked on an image and it has
     // moved a little, then we decide to interpret the action as the start of
