@@ -3,29 +3,39 @@
     copyright (c) 2016 Roman Lebedev.
 
     darktable is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
+    it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
     darktable is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    GNU Lesser General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
+    You should have received a copy of the GNU Lesser General Public License
     along with darktable.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
 
-struct dt_iop_buffer_dsc_t;
-struct dt_iop_roi_t;
-enum dt_iop_colorspace_type_t;
+#include <glib.h>
+#include <stdint.h>
 
-void dt_color_picker_helper(const struct dt_iop_buffer_dsc_t *dsc, const float *const pixel,
-                            const struct dt_iop_roi_t *roi, const int *const box, float *const picked_color,
-                            float *const picked_color_min, float *const picked_color_max,
-                            const enum dt_iop_colorspace_type_t image_cst, const enum dt_iop_colorspace_type_t picker_cst);
+#include "common/undo.h"
+
+static gboolean _lighttable_undo_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                          GdkModifierType modifier, gpointer data)
+{
+  dt_undo_do_undo(darktable.undo, DT_UNDO_LIGHTTABLE);
+  return TRUE;
+}
+
+static gboolean _lighttable_redo_callback(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
+                                          GdkModifierType modifier, gpointer data)
+{
+  dt_undo_do_redo(darktable.undo, DT_UNDO_LIGHTTABLE);
+  return TRUE;
+}
 
 // modelines: These editor modelines have been set for all relevant files by tools/update_modelines.sh
 // vim: shiftwidth=2 expandtab tabstop=2 cindent

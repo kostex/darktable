@@ -33,6 +33,7 @@
 #include "gui/gtk.h"
 #include "libs/colorpicker.h"
 #include "libs/lib.h"
+#include "gui/color_picker_proxy.h"
 
 #include <assert.h>
 #include <math.h>
@@ -400,8 +401,9 @@ static void histogram_collect(dt_dev_pixelpipe_iop_t *piece, const void *pixel, 
 
   const dt_iop_colorspace_type_t cst = dt_iop_module_colorspace(piece->module);
 
-  dt_histogram_helper(&histogram_params, &piece->histogram_stats, cst, pixel, histogram);
-  dt_histogram_max_helper(&piece->histogram_stats, cst, histogram, histogram_max);
+  dt_histogram_helper(&histogram_params, &piece->histogram_stats, cst, piece->module->histogram_cst, pixel,
+                      histogram);
+  dt_histogram_max_helper(&piece->histogram_stats, cst, piece->module->histogram_cst, histogram, histogram_max);
 }
 
 #ifdef HAVE_OPENCL
@@ -447,8 +449,9 @@ static void histogram_collect_cl(int devid, dt_dev_pixelpipe_iop_t *piece, cl_me
 
   const dt_iop_colorspace_type_t cst = dt_iop_module_colorspace(piece->module);
 
-  dt_histogram_helper(&histogram_params, &piece->histogram_stats, cst, pixel, histogram);
-  dt_histogram_max_helper(&piece->histogram_stats, cst, histogram, histogram_max);
+  dt_histogram_helper(&histogram_params, &piece->histogram_stats, cst, piece->module->histogram_cst, pixel,
+                      histogram);
+  dt_histogram_max_helper(&piece->histogram_stats, cst, piece->module->histogram_cst, histogram, histogram_max);
 
   if(tmpbuf) dt_free_align(tmpbuf);
 }
@@ -532,7 +535,8 @@ static void pixelpipe_picker(dt_iop_module_t *module, dt_iop_buffer_dsc_t *dsc, 
   if(pixelpipe_picker_helper(module, roi, picked_color, picked_color_min, picked_color_max, picker_source, box))
     return;
 
-  dt_color_picker_helper(dsc, pixel, roi, box, picked_color, picked_color_min, picked_color_max);
+  dt_color_picker_helper(dsc, pixel, roi, box, picked_color, picked_color_min, picked_color_max,
+                         dt_iop_module_colorspace(module), dt_iop_color_picker_get_active_cst(module));
 }
 
 
@@ -590,7 +594,8 @@ static void pixelpipe_picker_cl(int devid, dt_iop_module_t *module, dt_iop_buffe
   box[2] = region[0];
   box[3] = region[1];
 
-  dt_color_picker_helper(dsc, pixel, &roi_copy, box, picked_color, picked_color_min, picked_color_max);
+  dt_color_picker_helper(dsc, pixel, &roi_copy, box, picked_color, picked_color_min, picked_color_max,
+                         dt_iop_module_colorspace(module), dt_iop_color_picker_get_active_cst(module));
 
 error:
   dt_free_align(tmpbuf);
@@ -964,8 +969,9 @@ static void _pixelpipe_final_histogram(dt_develop_t *dev, const float *const inp
   histogram_params.bins_count = 256;
   histogram_params.mul = histogram_params.bins_count - 1;
 
-  dt_histogram_helper(&histogram_params, &histogram_stats, cst, (img_tmp) ? img_tmp: input, &dev->histogram);
-  dt_histogram_max_helper(&histogram_stats, cst, &dev->histogram, histogram_max);
+  dt_histogram_helper(&histogram_params, &histogram_stats, cst, iop_cs_NONE, (img_tmp) ? img_tmp : input,
+                      &dev->histogram);
+  dt_histogram_max_helper(&histogram_stats, cst, iop_cs_NONE, &dev->histogram, histogram_max);
   dev->histogram_max = MAX(MAX(histogram_max[0], histogram_max[1]), histogram_max[2]);
   
   if(img_tmp) dt_free_align(img_tmp);
@@ -1453,7 +1459,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
             dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-            if(module->widget) dt_control_queue_redraw_widget(module->widget);
+            dt_iop_color_picker_apply_module(module);
 
             dt_pthread_mutex_lock(&pipe->busy_mutex);
           }
@@ -1585,7 +1591,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
             dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-            if(module->widget) dt_control_queue_redraw_widget(module->widget);
+            dt_iop_color_picker_apply_module(module);
 
             dt_pthread_mutex_lock(&pipe->busy_mutex);
           }
@@ -1799,7 +1805,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
             dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-            if(module->widget) dt_control_queue_redraw_widget(module->widget);
+            dt_iop_color_picker_apply_module(module);
 
             dt_pthread_mutex_lock(&pipe->busy_mutex);
           }
@@ -1932,7 +1938,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
           dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-          if(module->widget) dt_control_queue_redraw_widget(module->widget);
+          dt_iop_color_picker_apply_module(module);
 
           dt_pthread_mutex_lock(&pipe->busy_mutex);
         }
@@ -2030,7 +2036,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
         dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-        if(module->widget) dt_control_queue_redraw_widget(module->widget);
+        dt_iop_color_picker_apply_module(module);
 
         dt_pthread_mutex_lock(&pipe->busy_mutex);
       }
@@ -2114,7 +2120,7 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
 
       dt_pthread_mutex_unlock(&pipe->busy_mutex);
 
-      if(module->widget) dt_control_queue_redraw_widget(module->widget);
+      dt_iop_color_picker_apply_module(module);
 
       dt_pthread_mutex_lock(&pipe->busy_mutex);
     }

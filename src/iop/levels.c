@@ -248,7 +248,7 @@ static int _iop_color_picker_get_set(dt_iop_module_t *self, GtkWidget *button)
     g->color_picker.current_picker = WHITE;
 
   if (current_picker == g->color_picker.current_picker)
-    return ALREADY_SELECTED;
+    return DT_COLOR_PICKER_ALREADY_SELECTED;
   else
     return g->color_picker.current_picker;
 }
@@ -775,7 +775,7 @@ void gui_init(dt_iop_module_t *self)
   g_signal_connect(G_OBJECT(c->greypick), "toggled", G_CALLBACK(dt_iop_color_picker_callback), &c->color_picker);
   g_signal_connect(G_OBJECT(c->whitepick), "toggled", G_CALLBACK(dt_iop_color_picker_callback), &c->color_picker);
 
-  init_picker(&c->color_picker,
+  dt_iop_init_picker(&c->color_picker,
               self,
               DT_COLOR_PICKER_POINT,
               _iop_color_picker_get_set,
@@ -1072,7 +1072,7 @@ static gboolean dt_iop_levels_scroll(GtkWidget *widget, GdkEventScroll *event, g
   dt_iop_levels_gui_data_t *c = (dt_iop_levels_gui_data_t *)self->gui_data;
   dt_iop_levels_params_t *p = (dt_iop_levels_params_t *)self->params;
 
-  dt_iop_color_picker_reset(&c->color_picker, TRUE);
+  dt_iop_color_picker_reset(self, TRUE);
 
   if(c->dragging)
   {
@@ -1098,7 +1098,7 @@ static void dt_iop_levels_autoadjust_callback(GtkRange *range, dt_iop_module_t *
   dt_iop_levels_params_t *p = (dt_iop_levels_params_t *)self->params;
   dt_iop_levels_gui_data_t *c = (dt_iop_levels_gui_data_t *)self->gui_data;
 
-  dt_iop_color_picker_reset(&c->color_picker, TRUE);
+  dt_iop_color_picker_reset(self, TRUE);
 
   dt_iop_levels_compute_levels_manual(self->histogram, p->levels);
 
@@ -1117,7 +1117,7 @@ static void dt_iop_levels_mode_callback(GtkWidget *combo, gpointer user_data)
   dt_iop_levels_gui_data_t *g = (dt_iop_levels_gui_data_t *)self->gui_data;
   dt_iop_levels_params_t *p = (dt_iop_levels_params_t *)self->params;
 
-  dt_iop_color_picker_reset(&g->color_picker, TRUE);
+  dt_iop_color_picker_reset(self, TRUE);
 
   const dt_iop_levels_mode_t new_mode
       = GPOINTER_TO_UINT(g_list_nth_data(g->modes, dt_bauhaus_combobox_get(combo)));

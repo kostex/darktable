@@ -44,6 +44,7 @@ struct dt_dev_pixelpipe_t;
 struct dt_dev_pixelpipe_iop_t;
 struct dt_develop_blend_params_t;
 struct dt_develop_tiling_t;
+struct dt_iop_color_picker_t;
 
 /** module group */
 typedef enum dt_iop_group_t
@@ -115,6 +116,17 @@ typedef enum dt_dev_request_colorpick_flags_t
   DT_REQUEST_COLORPICK_MODULE = 1 << 0, // requested by module (should take precedence)
   DT_REQUEST_COLORPICK_BLEND = 1 << 1   // requested by parametric blending gui
 } dt_dev_request_colorpick_flags_t;
+
+/** colorspace enums */
+typedef enum dt_iop_colorspace_type_t
+{
+  iop_cs_NONE = -1,
+  iop_cs_RAW = 0,
+  iop_cs_Lab = 1,
+  iop_cs_rgb = 2,
+  iop_cs_LCh = 3,
+  iop_cs_HSL = 4
+} dt_iop_colorspace_type_t;
 
 /** part of the module which only contains the cached dlopen stuff. */
 struct dt_iop_module_so_t;
@@ -269,6 +281,9 @@ typedef struct dt_iop_module_t
   /** set to 1 if you want the blendif to be completely suppressed in the module in focus. only when the module has
    * the focus. */
   int32_t bypass_blendif;
+  /** color picker proxys */
+  struct dt_iop_color_picker_t *picker;
+  struct dt_iop_color_picker_t *blend_picker;
   /** bounding box in which the mean color is requested. */
   float color_picker_box[4];
   /** single point to pick if in point mode */
@@ -283,6 +298,11 @@ typedef struct dt_iop_module_t
   dt_dev_histogram_stats_t histogram_stats;
   /** maximum levels in histogram, one per channel */
   uint32_t histogram_max[4];
+  /** requested colorspace for the histogram, valid options are:
+   * iop_cs_NONE: module colorspace
+   * iop_cs_LCh: for Lab modules
+   */
+  dt_iop_colorspace_type_t histogram_cst;
   /** reference for dlopened libs. */
   darktable_t *dt;
   /** the module is used in this develop module. */
@@ -551,14 +571,6 @@ int dt_iop_breakpoint(struct dt_develop_t *dev, struct dt_dev_pixelpipe_t *pipe)
 
 /** allow plugins to relinquish CPU and go to sleep for some time */
 void dt_iop_nap(int32_t usec);
-
-/** colorspace enums */
-typedef enum dt_iop_colorspace_type_t
-{
-  iop_cs_RAW,
-  iop_cs_Lab,
-  iop_cs_rgb
-} dt_iop_colorspace_type_t;
 
 /** find which colorspace the module works within */
 dt_iop_colorspace_type_t dt_iop_module_colorspace(const dt_iop_module_t *module);
