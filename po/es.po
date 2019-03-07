@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Darktable 2.6.1\n"
+"Project-Id-Version: darktable 2.6.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2019-03-05 11:27-0600\n"
-"PO-Revision-Date: 2019-03-05 19:48-0600\n"
+"PO-Revision-Date: 2019-03-06 23:43-0600\n"
 "Last-Translator: Edgar Lux <edgarlux@disroot.org>\n"
 "Language-Team: Tatica Leandro, Edgar Lux, Salvador Calero, J. Karlos D, "
 "Pablo Carrascón\n"
@@ -205,7 +205,7 @@ msgstr "activar superposición extendida de la miniatura"
 msgid "if set to true, thumb overlay shows filename and some exif data."
 msgstr ""
 "si se marca verdadero la superposición de la miniatura mostrará nombre del "
-"archivo y algunos datos exif."
+"archivo y algunos datos Exif."
 
 #: ../build/src/preferences_gen.h:2191
 msgid "use single-click in the collect panel"
@@ -563,7 +563,7 @@ msgstr "activar tira de imágenes"
 #: ../build/src/preferences_gen.h:2870
 msgid "enable the filmstrip in darkroom, tethering and map modes."
 msgstr ""
-"activar tira de imágenes en el modo de cuarto oscuro, modos captura y modo "
+"activar tira de imágenes en el modo de cuarto oscuro, modo captura y modo "
 "mapa."
 
 #: ../build/src/preferences_gen.h:2878
@@ -585,8 +585,8 @@ msgid ""
 "import time or the crawler has to be enabled"
 msgstr ""
 "cuando hay un archivo txt junto a una imagen, se puede mostrar un solapado "
-"sobre la imagen aumentada en la mesa de luz. el archivo txt tendrá que "
-"existir al momento de importar o el rastreador tendrá que estar activado"
+"sobre la imagen aumentada en la mesa de luz. el archivo txt tendrá que estar "
+"presente en el momento de importar o el rastreador tendrá que estar activado"
 
 #: ../build/src/preferences_gen.h:2918
 msgid "show scrollbars for center view"
@@ -1068,7 +1068,7 @@ msgstr "parte de la ruta completa para importar una sesión"
 
 #: ../build/src/preferences_gen.h:3796
 msgid "sub directory naming pattern"
-msgstr "sub directorio de patrón de nombres"
+msgstr "subdirectorio de patrón de nombres"
 
 #: ../build/src/preferences_gen.h:3820
 msgid "file naming pattern"
@@ -5031,7 +5031,7 @@ msgstr ""
 #: ../src/iop/ashift.c:4897
 msgid "focal length of the lens, default value set from exif data if available"
 msgstr ""
-"distancia focal del lente, valor por defecto ajustado desde los datos exif "
+"distancia focal del lente, valor por defecto ajustado desde los datos Exif "
 "si están disponibles"
 
 #: ../src/iop/ashift.c:4899
@@ -5040,7 +5040,7 @@ msgid ""
 "available, manual setting is often required"
 msgstr ""
 "factor de corte del sensor de la cámara, valor por defecto tomado de los "
-"datos exif si están disponibles, ajustes manuales son requeridos usualmente"
+"datos Exif si están disponibles, ajustes manuales son requeridos usualmente"
 
 #: ../src/iop/ashift.c:4902
 msgid ""
@@ -10534,7 +10534,7 @@ msgid ""
 "most cameras don't store the time zone in EXIF. give the correct time zone "
 "so the GPX data can be correctly matched"
 msgstr ""
-"la mayoría de las cámaras no almacenan la zona horaria en el exif. indique "
+"la mayoría de las cámaras no almacenan la zona horaria en el Exif. indique "
 "la zona horaria correcta para que los datos gpx puedan ser procesados "
 "correctamente"
 
@@ -10714,7 +10714,7 @@ msgstr "restablecer rotación"
 
 #: ../src/libs/image.c:242
 msgid "reset rotation to EXIF data"
-msgstr "restablecer rotación con los datos exif"
+msgstr "restablecer rotación con los datos Exif"
 
 #: ../src/libs/image.c:247
 msgid "copy locally"
@@ -12529,7 +12529,7 @@ msgstr "púrpura y verde"
 
 #: ../src/views/darkroom.c:1632
 msgid "select colors to indicate over/under exposure"
-msgstr "seleccionar los colores para indicar sobre/sub exposición"
+msgstr "seleccionar los colores para indicar sobreexposición o subexposición"
 
 #: ../src/views/darkroom.c:1641
 msgid "lower threshold"
@@ -13829,12 +13829,12 @@ msgstr ""
 #~ "$(HOUR) - hora\n"
 #~ "$(MINUTE) - minuto\n"
 #~ "$(SECOND) - segundo\n"
-#~ "$(EXIF_YEAR) - año en exif\n"
-#~ "$(EXIF_MONTH) - mes en exif\n"
-#~ "$(EXIF_DAY) - día en exif\n"
-#~ "$(EXIF_HOUR) - hora en exif\n"
-#~ "$(EXIF_MINUTE) - minutos en exif\n"
-#~ "$(EXIF_SECONDS) - segundos en exif\n"
+#~ "$(EXIF_YEAR) - año en Exif\n"
+#~ "$(EXIF_MONTH) - mes en Exif\n"
+#~ "$(EXIF_DAY) - día en Exif\n"
+#~ "$(EXIF_HOUR) - hora en Exif\n"
+#~ "$(EXIF_MINUTE) - minutos en Exif\n"
+#~ "$(EXIF_SECONDS) - segundos en Exif\n"
 #~ "$(STARS) - valoración en estrellas\n"
 #~ "$(LABELS) - etiquetas de color\n"
 #~ "$(PICTURE_FOLDER) - carpeta de imágenes\n"
@@ -13897,7 +13897,7 @@ msgstr ""
 #~ msgstr "edición avanzada de estilo"
 
 #~ msgid "reset from exif data"
-#~ msgstr "restablecer desde los datos exif"
+#~ msgstr "restablecer desde los datos Exif"
 
 #~ msgid "apply distortions instead of correcting them"
 #~ msgstr "aplicar distorsiones en vez de corregirlas"
@@ -13964,12 +13964,12 @@ msgstr ""
 #~ "$(HOUR) - hora\n"
 #~ "$(MINUTE) - minuto\n"
 #~ "$(SECOND) - segundo\n"
-#~ "$(EXIF_YEAR) - año en datos exif\n"
-#~ "$(EXIF_MONTH) - mes en datos exif\n"
-#~ "$(EXIF_DAY) - día en datos exif\n"
-#~ "$(EXIF_HOUR) - hora en datos exif\n"
-#~ "$(EXIF_MINUTE) - minutos en datos exif\n"
-#~ "$(EXIF_SECONDS) - segundos en datos exif\n"
+#~ "$(EXIF_YEAR) - año en datos Exif\n"
+#~ "$(EXIF_MONTH) - mes en datos Exif\n"
+#~ "$(EXIF_DAY) - día en datos Exif\n"
+#~ "$(EXIF_HOUR) - hora en datos Exif\n"
+#~ "$(EXIF_MINUTE) - minutos en datos Exif\n"
+#~ "$(EXIF_SECONDS) - segundos en datos Exif\n"
 #~ "$(STARS) - valoración estrellas\n"
 #~ "$(LABELS) - etiquetas de color\n"
 #~ "$(PICTURE_FOLDER) - carpeta imágenes\n"
@@ -14264,15 +14264,15 @@ msgstr ""
 
 #~ msgctxt "accel"
 #~ msgid "reset camera from exif data"
-#~ msgstr "reinicializar cámara desde los datos exif"
+#~ msgstr "reinicializar cámara desde los datos Exif"
 
 #~ msgctxt "accel"
 #~ msgid "reset distance from exif data"
-#~ msgstr "reinicializar distancia desde los datos exif"
+#~ msgstr "reinicializar distancia desde los datos Exif"
 
 #~ msgctxt "accel"
 #~ msgid "reset lens from exif data"
-#~ msgstr "reinicializar lente desde los datos exif"
+#~ msgstr "reinicializar lente desde los datos Exif"
 
 #~ msgctxt "accel"
 #~ msgid "sensitivity"
