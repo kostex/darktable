@@ -347,28 +347,37 @@ void dt_image_print_exif(const dt_image_t *img, char *line, size_t line_len)
              (int)img->exif_focal_length, (int)img->exif_iso);
 }
 
-void dt_image_set_location(const int32_t imgid, double lon, double lat)
+void dt_image_get_location(int imgid, dt_image_geoloc_t *geoloc)
+{
+  const dt_image_t *img = dt_image_cache_get(darktable.image_cache, imgid, 'r');
+  geoloc->longitude = img->geoloc.longitude;
+  geoloc->latitude = img->geoloc.latitude;
+  geoloc->elevation = img->geoloc.elevation;
+  dt_image_cache_read_release(darktable.image_cache, img);
+}
+
+void dt_image_set_location(const int32_t imgid, dt_image_geoloc_t *geoloc)
 {
   /* fetch image from cache */
   dt_image_t *image = dt_image_cache_get(darktable.image_cache, imgid, 'w');
 
   /* set image location */
-  image->longitude = lon;
-  image->latitude = lat;
+  image->geoloc.longitude = geoloc->longitude;
+  image->geoloc.latitude = geoloc->latitude;
 
   /* store */
   dt_image_cache_write_release(darktable.image_cache, image, DT_IMAGE_CACHE_SAFE);
 }
 
-void dt_image_set_location_and_elevation(const int32_t imgid, double lon, double lat, double ele)
+void dt_image_set_location_and_elevation(const int32_t imgid, dt_image_geoloc_t *geoloc)
 {
   /* fetch image from cache */
   dt_image_t *image = dt_image_cache_get(darktable.image_cache, imgid, 'w');
 
   /* set image location and elevation */
-  image->longitude = lon;
-  image->latitude = lat;
-  image->elevation = ele;
+  image->geoloc.longitude = geoloc->longitude;
+  image->geoloc.latitude = geoloc->latitude;
+  image->geoloc.elevation = geoloc->elevation;
 
   /* store */
   dt_image_cache_write_release(darktable.image_cache, image, DT_IMAGE_CACHE_SAFE);
@@ -1218,9 +1227,9 @@ void dt_image_init(dt_image_t *img)
   img->exif_iso = 0;
   img->exif_focal_length = 0;
   img->exif_focus_distance = 0;
-  img->latitude = NAN;
-  img->longitude = NAN;
-  img->elevation = NAN;
+  img->geoloc.latitude = NAN;
+  img->geoloc.longitude = NAN;
+  img->geoloc.elevation = NAN;
   img->raw_black_level = 0;
   for(uint8_t i = 0; i < 4; i++) img->raw_black_level_separate[i] = 0;
   img->raw_white_point = 16384; // 2^14
@@ -1683,14 +1692,17 @@ int dt_image_local_copy_reset(const int32_t imgid)
 
     if(g_file_test(locppath, G_FILE_TEST_EXISTS)) g_file_delete(dest, NULL, NULL);
     g_object_unref(dest);
-
-    // update cache, remove local copy flags
-    dt_image_t *img = dt_image_cache_get(darktable.image_cache, imgid, 'w');
-    img->flags &= ~DT_IMAGE_LOCAL_COPY;
-    dt_image_cache_write_release(darktable.image_cache, img, DT_IMAGE_CACHE_RELAXED);
-
-    dt_control_queue_redraw_center();
   }
+
+  // update cache, remove local copy flags, this is done in all cases here as when we
+  // reach this point the local-copy flag is present and the file has been either removed
+  // or is not present.
+
+  dt_image_t *img = dt_image_cache_get(darktable.image_cache, imgid, 'w');
+  img->flags &= ~DT_IMAGE_LOCAL_COPY;
+  dt_image_cache_write_release(darktable.image_cache, img, DT_IMAGE_CACHE_RELAXED);
+
+  dt_control_queue_redraw_center();
 
   return 0;
 }
