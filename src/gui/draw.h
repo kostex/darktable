@@ -82,6 +82,33 @@ static inline void dt_draw_grid(cairo_t *cr, const int num, const int left, cons
   }
 }
 
+static inline float dt_curve_to_mouse(const float x, const float zoom_factor, const float offset)
+{
+  return (x - offset) * zoom_factor;
+}
+
+/* left, right, top, bottom are in curve coordinates [0..1] */
+static inline void dt_draw_grid_zoomed(cairo_t *cr, const int num, const float left, const float top,
+                                       const float right, const float bottom, const float width,
+                                       const float height, const float zoom_factor, const float zoom_offset_x,
+                                       const float zoom_offset_y)
+{
+  for(int k = 1; k < num; k++)
+  {
+    dt_draw_line(cr, dt_curve_to_mouse(left + k / (float)num, zoom_factor, zoom_offset_x) * width,
+                 dt_curve_to_mouse(top, zoom_factor, zoom_offset_y) * -height,
+                 dt_curve_to_mouse(left + k / (float)num, zoom_factor, zoom_offset_x) * width,
+                 dt_curve_to_mouse(bottom, zoom_factor, zoom_offset_y) * -height);
+    cairo_stroke(cr);
+
+    dt_draw_line(cr, dt_curve_to_mouse(left, zoom_factor, zoom_offset_x) * width,
+                 dt_curve_to_mouse(top + k / (float)num, zoom_factor, zoom_offset_y) * -height,
+                 dt_curve_to_mouse(right, zoom_factor, zoom_offset_x) * width,
+                 dt_curve_to_mouse(top + k / (float)num, zoom_factor, zoom_offset_y) * -height);
+    cairo_stroke(cr);
+  }
+}
+
 static inline void dt_draw_loglog_grid(cairo_t *cr, const int num, const int left, const int top,
                                        const int right, const int bottom, const float base)
 {
@@ -245,16 +272,19 @@ static inline void dt_draw_curve_calc_values(dt_draw_curve_t *c, const float min
 static inline float dt_draw_curve_calc_value(dt_draw_curve_t *c, const float x)
 {
   float xa[20], ya[20];
-  float val;
-  float *ypp;
+  float val = 0.f;
+  float *ypp = NULL;
   for(int i = 0; i < c->c.m_numAnchors; i++)
   {
     xa[i] = c->c.m_anchors[i].x;
     ya[i] = c->c.m_anchors[i].y;
   }
   ypp = interpolate_set(c->c.m_numAnchors, xa, ya, c->c.m_spline_type);
-  val = interpolate_val(c->c.m_numAnchors, xa, x, ya, ypp, c->c.m_spline_type);
-  free(ypp);
+  if(ypp)
+  {
+    val = interpolate_val(c->c.m_numAnchors, xa, x, ya, ypp, c->c.m_spline_type);
+    free(ypp);
+  }
   return MIN(MAX(val, c->c.m_min_y), c->c.m_max_y);
 }
 
