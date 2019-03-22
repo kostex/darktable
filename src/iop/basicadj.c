@@ -516,20 +516,22 @@ void cleanup_global(dt_iop_module_so_t *module)
   module->data = NULL;
 }
 
-static void _iop_color_picker_apply(struct dt_iop_module_t *self)
+static void _iop_color_picker_apply(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece)
 {
   if(self->dt->gui->reset) return;
   dt_iop_basicadj_params_t *p = (dt_iop_basicadj_params_t *)self->params;
   dt_iop_basicadj_gui_data_t *g = (dt_iop_basicadj_gui_data_t *)self->gui_data;
 
-  const dt_iop_order_iccprofile_info_t *const work_profile
-      = dt_ioppr_get_iop_work_profile_info(self, self->dev->iop);
+  const dt_iop_order_iccprofile_info_t *const work_profile = dt_ioppr_get_pipe_work_profile_info(piece->pipe);
   p->middle_grey = (work_profile) ? (dt_ioppr_get_rgb_matrix_luminance(self->picked_color, work_profile) * 100.f)
                                   : dt_camera_rgb_luminance(self->picked_color);
 
   darktable.gui->reset = 1;
   dt_bauhaus_slider_set(g->sl_middle_grey, p->middle_grey);
   darktable.gui->reset = 0;
+
+  // avoid recursion
+  self->picker->skip_apply = TRUE;
 
   dt_dev_add_history_item(darktable.develop, self, TRUE);
 }

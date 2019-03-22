@@ -526,7 +526,7 @@ gint dt_lib_sort_plugins(gconstpointer a, gconstpointer b)
 }
 
 /* default expandable implementation */
-static int _lib_default_expandable()
+static int _lib_default_expandable(dt_lib_module_t *self)
 {
   return 1;
 }
@@ -1197,6 +1197,13 @@ void dt_lib_colorpicker_set_area(dt_lib_t *lib, float size)
 {
   if(!lib->proxy.colorpicker.module || !lib->proxy.colorpicker.set_sample_area) return;
   lib->proxy.colorpicker.set_sample_area(lib->proxy.colorpicker.module, size);
+  gtk_widget_grab_focus(dt_ui_center(darktable.gui->ui));
+}
+
+void dt_lib_colorpicker_set_box_area(dt_lib_t *lib, const float *const box)
+{
+  if(!lib->proxy.colorpicker.module || !lib->proxy.colorpicker.set_sample_box_area) return;
+  lib->proxy.colorpicker.set_sample_box_area(lib->proxy.colorpicker.module, box);
   gtk_widget_grab_focus(dt_ui_center(darktable.gui->ui));
 }
 

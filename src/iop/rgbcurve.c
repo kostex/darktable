@@ -563,7 +563,7 @@ static inline int _add_node_from_picker(dt_iop_rgbcurve_params_t *p, const float
   return _add_node(p->curve_nodes[ch], &p->curve_num_nodes[ch], x, y);
 }
 
-static void _iop_color_picker_apply(dt_iop_module_t *self)
+static void _iop_color_picker_apply(dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece)
 {
   dt_iop_rgbcurve_gui_data_t *g = (dt_iop_rgbcurve_gui_data_t *)self->gui_data;
   if(g->color_picker.current_picker == DT_IOP_RGBCURVE_PICK_SET_VALUES)
@@ -572,8 +572,7 @@ static void _iop_color_picker_apply(dt_iop_module_t *self)
     dt_iop_rgbcurve_params_t *d = (dt_iop_rgbcurve_params_t *)self->default_params;
 
     const int ch = g->channel;
-    const dt_iop_order_iccprofile_info_t *const work_profile
-        = dt_ioppr_get_iop_work_profile_info(self, self->dev->iop);
+    const dt_iop_order_iccprofile_info_t *const work_profile = dt_ioppr_get_pipe_work_profile_info(piece->pipe);
 
     // reset current curve
     p->curve_num_nodes[ch] = d->curve_num_nodes[ch];
@@ -595,6 +594,9 @@ static void _iop_color_picker_apply(dt_iop_module_t *self)
       _add_node(p->curve_nodes[ch], &p->curve_num_nodes[ch],
                 p->curve_nodes[ch][1].x - increment + (p->curve_nodes[ch][3].x - p->curve_nodes[ch][1].x) / 2.f,
                 p->curve_nodes[ch][1].y + increment + (p->curve_nodes[ch][3].y - p->curve_nodes[ch][1].y) / 2.f);
+
+    // avoid recursion
+    self->picker->skip_apply = TRUE;
 
     dt_dev_add_history_item(darktable.develop, self, TRUE);
   }
@@ -969,43 +971,61 @@ static gboolean _area_draw_callback(GtkWidget *widget, cairo_t *crf, dt_iop_modu
       const dt_iop_order_iccprofile_info_t *const work_profile
           = dt_ioppr_get_iop_work_profile_info(self, self->dev->iop);
 
-      float picker_mean[3], picker_min[3], picker_max[3];
-
-      const float *const raw_mean = self->picked_color;
-      const float *const raw_min = self->picked_color_min;
-      const float *const raw_max = self->picked_color_max;
-      const float *const raw_mean_output = self->picked_output_color;
+      float picker_mean[4], picker_min[4], picker_max[4];
 
       // the global live samples ...
       GSList *samples = darktable.lib->proxy.colorpicker.live_samples;
-      dt_colorpicker_sample_t *sample = NULL;
-      while(samples)
+      if(samples)
       {
-        sample = samples->data;
+        const dt_iop_order_iccprofile_info_t *const histogram_profile = dt_ioppr_get_histogram_profile_info(dev);
+        if(work_profile && histogram_profile)
+        {
+          dt_colorpicker_sample_t *sample = NULL;
+          while(samples)
+          {
+            sample = samples->data;
 
-        picker_scale(sample->picked_color_rgb_mean, picker_mean, p, work_profile);
-        picker_scale(sample->picked_color_rgb_min, picker_min, p, work_profile);
-        picker_scale(sample->picked_color_rgb_max, picker_max, p, work_profile);
+            // this functions need a 4c image
+            for(int k = 0; k < 3; k++)
+            {
+              picker_mean[k] = sample->picked_color_rgb_mean[k];
+              picker_min[k] = sample->picked_color_rgb_min[k];
+              picker_max[k] = sample->picked_color_rgb_max[k];
+            }
+            picker_mean[3] = picker_min[3] = picker_max[3] = 1.f;
 
-        // Convert abcissa to log coordinates if needed
-        picker_min[ch] = _curve_to_mouse(picker_min[ch], g->zoom_factor, g->offset_x);
-        picker_max[ch] = _curve_to_mouse(picker_max[ch], g->zoom_factor, g->offset_x);
-        picker_mean[ch] = _curve_to_mouse(picker_mean[ch], g->zoom_factor, g->offset_x);
+            dt_ioppr_transform_image_colorspace_rgb(picker_mean, picker_mean, 1, 1, histogram_profile,
+                                                    work_profile, "rgb curve");
+            dt_ioppr_transform_image_colorspace_rgb(picker_min, picker_min, 1, 1, histogram_profile, work_profile,
+                                                    "rgb curve");
+            dt_ioppr_transform_image_colorspace_rgb(picker_max, picker_max, 1, 1, histogram_profile, work_profile,
+                                                    "rgb curve");
 
-        cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.15);
-        cairo_rectangle(cr, width * picker_min[ch], 0, width * fmax(picker_max[ch] - picker_min[ch], 0.0f),
-                        -height);
-        cairo_fill(cr);
-        cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.5);
-        cairo_move_to(cr, width * picker_mean[ch], 0);
-        cairo_line_to(cr, width * picker_mean[ch], -height);
-        cairo_stroke(cr);
+            picker_scale(picker_mean, picker_mean, p, work_profile);
+            picker_scale(picker_min, picker_min, p, work_profile);
+            picker_scale(picker_max, picker_max, p, work_profile);
 
-        samples = g_slist_next(samples);
+            // Convert abcissa to log coordinates if needed
+            picker_min[ch] = _curve_to_mouse(picker_min[ch], g->zoom_factor, g->offset_x);
+            picker_max[ch] = _curve_to_mouse(picker_max[ch], g->zoom_factor, g->offset_x);
+            picker_mean[ch] = _curve_to_mouse(picker_mean[ch], g->zoom_factor, g->offset_x);
+
+            cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.15);
+            cairo_rectangle(cr, width * picker_min[ch], 0, width * fmax(picker_max[ch] - picker_min[ch], 0.0f),
+                            -height);
+            cairo_fill(cr);
+            cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.5);
+            cairo_move_to(cr, width * picker_mean[ch], 0);
+            cairo_line_to(cr, width * picker_mean[ch], -height);
+            cairo_stroke(cr);
+
+            samples = g_slist_next(samples);
+          }
+      }
       }
 
       // ... and the local sample
-      if(raw_max[ch] >= 0.0f)
+      if(self->picked_color_max[ch] >= 0.0f)
       {
         PangoLayout *layout;
         PangoRectangle ink;
@@ -1015,9 +1035,9 @@ static gboolean _area_draw_callback(GtkWidget *widget, cairo_t *crf, dt_iop_modu
         layout = pango_cairo_create_layout(cr);
         pango_layout_set_font_description(layout, desc);
 
-        picker_scale(raw_mean, picker_mean, p, work_profile);
-        picker_scale(raw_min, picker_min, p, work_profile);
-        picker_scale(raw_max, picker_max, p, work_profile);
+        picker_scale(self->picked_color, picker_mean, p, work_profile);
+        picker_scale(self->picked_color_min, picker_min, p, work_profile);
+        picker_scale(self->picked_color_max, picker_max, p, work_profile);
 
         // scale conservatively to 100% of width:
         snprintf(text, sizeof(text), "100.00 / 100.00 ( +100.00)");
@@ -1039,7 +1059,7 @@ static gboolean _area_draw_callback(GtkWidget *widget, cairo_t *crf, dt_iop_modu
         cairo_line_to(cr, width * picker_mean[ch], -height);
         cairo_stroke(cr);
 
-        snprintf(text, sizeof(text), "%.1f → %.1f", raw_mean[ch], raw_mean_output[ch]);
+        snprintf(text, sizeof(text), "%.1f → %.1f", self->picked_color[ch], self->picked_output_color[ch]);
 
         cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
         cairo_set_font_size(cr, DT_PIXEL_APPLY_DPI(0.04) * height);

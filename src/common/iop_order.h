@@ -126,6 +126,10 @@ dt_iop_order_iccprofile_info_t *dt_ioppr_get_iop_work_profile_info(struct dt_iop
  */
 dt_iop_order_iccprofile_info_t *dt_ioppr_set_pipe_work_profile_info(struct dt_develop_t *dev, struct dt_dev_pixelpipe_t *pipe, 
     const int type, const char *filename, const int intent);
+/** returns a reference to the histogram profile info
+ * histogram profile must not be cleanup()
+ */
+dt_iop_order_iccprofile_info_t *dt_ioppr_get_histogram_profile_info(struct dt_develop_t *dev);
 
 /** returns the active work profile on the pipe */
 dt_iop_order_iccprofile_info_t *dt_ioppr_get_pipe_work_profile_info(struct dt_dev_pixelpipe_t *pipe);
@@ -134,6 +138,8 @@ dt_iop_order_iccprofile_info_t *dt_ioppr_get_pipe_work_profile_info(struct dt_de
 void dt_ioppr_get_work_profile_type(struct dt_develop_t *dev, int *profile_type, char **profile_filename);
 /** returns the current setting of the export profile on colorout iop */
 void dt_ioppr_get_export_profile_type(struct dt_develop_t *dev, int *profile_type, char **profile_filename);
+/** returns the current setting of the histogram profile */
+void dt_ioppr_get_histogram_profile_type(int *profile_type, char **profile_filename);
 
 /** transforms image from cst_from to cst_to colorspace using profile_info */
 void dt_ioppr_transform_image_colorspace(struct dt_iop_module_t *self, const float *const image_in,
@@ -214,6 +220,7 @@ void dt_ioppr_lab_to_rgb_matrix(const float *const lab, float *rgb, const dt_iop
 void dt_ioppr_rgb_matrix_to_lab(const float *const rgb, float *lab, const dt_iop_order_iccprofile_info_t *const profile_info);
 
 // for debug only
+int dt_ioppr_check_db_integrity();
 int dt_ioppr_check_iop_order(struct dt_develop_t *dev, const int imgid, const char *msg);
 void dt_ioppr_print_module_iop_order(GList *iop_list, const char *msg);
 void dt_ioppr_print_history_iop_order(GList *history_list, const char *msg);

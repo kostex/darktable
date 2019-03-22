@@ -27,6 +27,7 @@
 #include "dtgtk/drawingarea.h"
 #include "gui/color_picker_proxy.h"
 #include "gui/presets.h"
+#include "libs/colorpicker.h"
 
 DT_MODULE_INTROSPECTION(4, dt_iop_colorzones_params_t)
 
@@ -640,8 +641,99 @@ static int _select_base_display_color(dt_iop_module_t *self, float *picked_color
 
 static void _draw_color_picker(dt_iop_module_t *self, cairo_t *cr, dt_iop_colorzones_params_t *p,
                                dt_iop_colorzones_gui_data_t *c, const int width, const int height,
-                               float *picked_color, float *picker_min, float *picker_max)
+                               const float *const picker_color, const float *const picker_min,
+                               const float *const picker_max)
 {
+  if(self->request_color_pick == DT_REQUEST_COLORPICK_MODULE)
+  {
+    // the global live samples ...
+    GSList *samples = darktable.lib->proxy.colorpicker.live_samples;
+    if(samples)
+    {
+      const dt_iop_order_iccprofile_info_t *const histogram_profile
+          = dt_ioppr_get_histogram_profile_info(self->dev);
+      const dt_iop_order_iccprofile_info_t *const work_profile
+          = dt_ioppr_get_iop_work_profile_info(self, self->dev->iop);
+      float pick_mean[4], pick_min[4], pick_max[4];
+      int converted_cst;
+
+      if(work_profile && histogram_profile)
+      {
+        dt_colorpicker_sample_t *sample = NULL;
+        while(samples)
+        {
+          sample = samples->data;
+
+          float picked_i = -1.0;
+          float picked_min_i = -1.0;
+          float picked_max_i = -1.0;
+
+          // this functions need a 4c image
+          for(int k = 0; k < 3; k++)
+          {
+            pick_mean[k] = sample->picked_color_rgb_mean[k];
+            pick_min[k] = sample->picked_color_rgb_min[k];
+            pick_max[k] = sample->picked_color_rgb_max[k];
+          }
+          pick_mean[3] = pick_min[3] = pick_max[3] = 1.f;
+
+          dt_ioppr_transform_image_colorspace_rgb(pick_mean, pick_mean, 1, 1, histogram_profile, work_profile,
+                                                  "color zones");
+          dt_ioppr_transform_image_colorspace_rgb(pick_min, pick_min, 1, 1, histogram_profile, work_profile,
+                                                  "color zones");
+          dt_ioppr_transform_image_colorspace_rgb(pick_max, pick_max, 1, 1, histogram_profile, work_profile,
+                                                  "color zones");
+
+          dt_ioppr_transform_image_colorspace(self, pick_mean, pick_mean, 1, 1, iop_cs_rgb, iop_cs_Lab,
+                                              &converted_cst, work_profile);
+          dt_ioppr_transform_image_colorspace(self, pick_min, pick_min, 1, 1, iop_cs_rgb, iop_cs_Lab,
+                                              &converted_cst, work_profile);
+          dt_ioppr_transform_image_colorspace(self, pick_max, pick_max, 1, 1, iop_cs_rgb, iop_cs_Lab,
+                                              &converted_cst, work_profile);
+
+          dt_Lab_2_LCH(pick_mean, pick_mean);
+          dt_Lab_2_LCH(pick_min, pick_min);
+          dt_Lab_2_LCH(pick_max, pick_max);
+
+          switch(p->channel)
+          {
+            // select by channel, abscissa:
+            case DT_IOP_COLORZONES_L:
+              picked_i = pick_mean[0] / 100.0;
+              picked_min_i = pick_min[0] / 100.0;
+              picked_max_i = pick_max[0] / 100.0;
+              break;
+            case DT_IOP_COLORZONES_C:
+              picked_i = pick_mean[1] / (128.0f * sqrtf(2.f));
+              picked_min_i = pick_min[1] / (128.0f * sqrtf(2.f));
+              picked_max_i = pick_max[1] / (128.0f * sqrtf(2.f));
+              break;
+            default: // case DT_IOP_COLORZONES_h:
+              picked_i = pick_mean[2];
+              picked_min_i = pick_min[2];
+              picked_max_i = pick_max[2];
+              break;
+          }
+
+          // Convert abcissa to log coordinates if needed
+          picked_i = _curve_to_mouse(picked_i, c->zoom_factor, c->offset_x);
+          picked_min_i = _curve_to_mouse(picked_min_i, c->zoom_factor, c->offset_x);
+          picked_max_i = _curve_to_mouse(picked_max_i, c->zoom_factor, c->offset_x);
+
+          cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.15);
+          cairo_rectangle(cr, width * picked_min_i, 0, width * fmax(picked_max_i - picked_min_i, 0.0f), height);
+          cairo_fill(cr);
+          cairo_set_source_rgba(cr, 0.5, 0.7, 0.5, 0.5);
+          cairo_move_to(cr, width * picked_i, 0);
+          cairo_line_to(cr, width * picked_i, height);
+          cairo_stroke(cr);
+
+          samples = g_slist_next(samples);
+        }
+      }
+    }
+  }
+
   if(self->request_color_pick == DT_REQUEST_COLORPICK_MODULE)
   {
     // draw marker for currently selected color:
@@ -652,17 +744,17 @@ static void _draw_color_picker(dt_iop_module_t *self, cairo_t *cr, dt_iop_colorz
     {
       // select by channel, abscissa:
       case DT_IOP_COLORZONES_L:
-        picked_i = picked_color[0] / 100.0;
+        picked_i = picker_color[0] / 100.0;
         picked_min_i = picker_min[0] / 100.0;
         picked_max_i = picker_max[0] / 100.0;
         break;
       case DT_IOP_COLORZONES_C:
-        picked_i = picked_color[1] / (128.0f * sqrtf(2.f));
+        picked_i = picker_color[1] / (128.0f * sqrtf(2.f));
         picked_min_i = picker_min[1] / (128.0f * sqrtf(2.f));
         picked_max_i = picker_max[1] / (128.0f * sqrtf(2.f));
         break;
       default: // case DT_IOP_COLORZONES_h:
-        picked_i = picked_color[2];
+        picked_i = picker_color[2];
         picked_min_i = picker_min[2];
         picked_max_i = picker_max[2];
         break;
@@ -951,7 +1043,7 @@ static gboolean _area_draw_callback(GtkWidget *widget, cairo_t *crf, dt_iop_modu
     pango_font_description_set_absolute_size(desc, width * 1.0 / ink.width * PANGO_SCALE);
     pango_layout_set_font_description(layout, desc);
 
-    snprintf(text, sizeof(text), "zoom: %i x: %i y: %ia", (int)((c->zoom_factor - 1.f) * 100.f),
+    snprintf(text, sizeof(text), "zoom: %i x: %i y: %i", (int)((c->zoom_factor - 1.f) * 100.f),
              (int)(c->offset_x * 100.f), (int)(c->offset_y * 100.f));
 
     cairo_set_source_rgba(cr, 0.1, 0.1, 0.1, 0.5);
@@ -1878,7 +1970,7 @@ static void _mode_callback(GtkWidget *widget, dt_iop_module_t *self)
   gtk_widget_queue_draw(GTK_WIDGET(g->area));
 }
 
-static void _iop_color_picker_apply(dt_iop_module_t *self)
+static void _iop_color_picker_apply(dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece)
 {
   dt_iop_colorzones_gui_data_t *g = (dt_iop_colorzones_gui_data_t *)self->gui_data;
   if(g->color_picker.current_picker == DT_IOP_COLORZONES_PICK_SET_VALUES)
@@ -1945,6 +2037,9 @@ static void _iop_color_picker_apply(dt_iop_module_t *self)
       x = self->picked_color_max[2];
     x += feather;
     if(x > 0.f && x < 1.f) _add_node(curve, &p->curve_num_nodes[ch_curve], x, .5f);
+
+    // avoid recursion
+    self->picker->skip_apply = TRUE;
 
     dt_dev_add_history_item(darktable.develop, self, TRUE);
   }
@@ -2022,7 +2117,7 @@ void gui_init(struct dt_iop_module_t *self)
     (void)dt_draw_curve_add_point(c->minmax_curve[ch], p->curve[ch][1].x + 1.0, p->curve[ch][1].y);
   }
 
-  c->mouse_x = c->mouse_y = /*c->mouse_pick =*/-1.0;
+  c->mouse_x = c->mouse_y = -1.0;
   c->selected = -1;
   c->offset_x = c->offset_y = 0.f;
   c->zoom_factor = 1.f;
