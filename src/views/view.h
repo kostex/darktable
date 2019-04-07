@@ -70,7 +70,8 @@ typedef enum dt_lighttable_layout_t
   DT_LIGHTTABLE_LAYOUT_ZOOMABLE = 0,
   DT_LIGHTTABLE_LAYOUT_FILEMANAGER = 1,
   DT_LIGHTTABLE_LAYOUT_EXPOSE = 2,
-  DT_LIGHTTABLE_LAYOUT_LAST = 3
+  DT_LIGHTTABLE_LAYOUT_CULLING = 3,
+  DT_LIGHTTABLE_LAYOUT_LAST = 4
 } dt_lighttable_layout_t;
 
 
@@ -165,9 +166,14 @@ typedef struct dt_view_image_expose_t
   int32_t py;
   gboolean full_preview;
   gboolean image_only;
-  float *full_zoom;
-  float *full_x;
-  float *full_y;
+  float full_zoom;
+  float *full_zoom100;
+  float *full_w1;
+  float *full_h1;
+  float full_x;
+  float full_y;
+  float *full_maxdx;
+  float *full_maxdy;
 
   cairo_surface_t **full_surface;
   uint8_t **full_rgbbuf;
@@ -284,6 +290,8 @@ typedef struct dt_view_manager_t
       uint32_t (*get_position)(struct dt_view_t *view);
       int (*get_images_in_row)(struct dt_view_t *view);
       int (*get_full_preview_id)(struct dt_view_t *view);
+      void (*set_display_num_images)(struct dt_lib_module_t *self, const int display_num_images);
+      int (*get_display_num_images)(struct dt_lib_module_t *self);
     } lighttable;
 
     /* tethering view proxy object */
@@ -408,10 +416,16 @@ int32_t dt_view_filmstrip_get_activated_imgid(dt_view_manager_t *vm);
 
 /** get the lighttable current layout */
 dt_lighttable_layout_t dt_view_lighttable_get_layout(dt_view_manager_t *vm);
+/** get the lighttable full preview state */
+gboolean dt_view_lighttable_preview_state(dt_view_manager_t *vm);
 /** sets the lighttable image in row zoom */
 void dt_view_lighttable_set_zoom(dt_view_manager_t *vm, gint zoom);
-/** sets the lighttable image in row zoom */
+/** gets the lighttable image in row zoom */
 gint dt_view_lighttable_get_zoom(dt_view_manager_t *vm);
+/** sets the lighttable number of images displayed in culling mode */
+void dt_view_lighttable_set_display_num_images(dt_view_manager_t *vm, const int display_num_images);
+/** gets the lighttable number of images displayed in culling mode */
+int dt_view_lighttable_get_display_num_images(dt_view_manager_t *vm);
 /** set first visible image offset */
 void dt_view_lighttable_set_position(dt_view_manager_t *vm, uint32_t pos);
 /** read first visible image offset */
