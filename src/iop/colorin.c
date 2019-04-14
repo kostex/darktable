@@ -49,11 +49,12 @@
 #include <lcms2.h>
 
 // max iccprofile file name length
-#define DT_IOP_COLOR_ICC_LEN 100
+// must be in synch with dt_colorspaces_color_profile_t
+#define DT_IOP_COLOR_ICC_LEN 512
 
 #define LUT_SAMPLES 0x10000
 
-DT_MODULE_INTROSPECTION(5, dt_iop_colorin_params_t)
+DT_MODULE_INTROSPECTION(6, dt_iop_colorin_params_t)
 
 static void update_profile_list(dt_iop_module_t *self);
 
@@ -153,11 +154,13 @@ int output_colorspace(dt_iop_module_t *self, dt_dev_pixelpipe_t *pipe,
 int legacy_params(dt_iop_module_t *self, const void *const old_params, const int old_version,
                   void *new_params, const int new_version)
 {
-  if(old_version == 1 && new_version == 5)
+#define DT_IOP_COLOR_ICC_LEN_V5 100
+
+  if(old_version == 1 && new_version == 6)
   {
     typedef struct dt_iop_colorin_params_v1_t
     {
-      char iccprofile[DT_IOP_COLOR_ICC_LEN];
+      char iccprofile[DT_IOP_COLOR_ICC_LEN_V5];
       dt_iop_color_intent_t intent;
     } dt_iop_colorin_params_v1_t;
 
@@ -204,11 +207,11 @@ int legacy_params(dt_iop_module_t *self, const void *const old_params, const int
     new->filename_work[0] = '\0';
     return 0;
   }
-  if(old_version == 2 && new_version == 5)
+  if(old_version == 2 && new_version == 6)
   {
     typedef struct dt_iop_colorin_params_v2_t
     {
-      char iccprofile[DT_IOP_COLOR_ICC_LEN];
+      char iccprofile[DT_IOP_COLOR_ICC_LEN_V5];
       dt_iop_color_intent_t intent;
       int normalize;
     } dt_iop_colorin_params_v2_t;
@@ -256,11 +259,11 @@ int legacy_params(dt_iop_module_t *self, const void *const old_params, const int
     new->filename_work[0] = '\0';
     return 0;
   }
-  if(old_version == 3 && new_version == 5)
+  if(old_version == 3 && new_version == 6)
   {
     typedef struct dt_iop_colorin_params_v3_t
     {
-      char iccprofile[DT_IOP_COLOR_ICC_LEN];
+      char iccprofile[DT_IOP_COLOR_ICC_LEN_V5];
       dt_iop_color_intent_t intent;
       int normalize;
       int blue_mapping;
@@ -310,12 +313,12 @@ int legacy_params(dt_iop_module_t *self, const void *const old_params, const int
 
     return 0;
   }
-  if(old_version == 4 && new_version == 5)
+  if(old_version == 4 && new_version == 6)
   {
     typedef struct dt_iop_colorin_params_v4_t
     {
       dt_colorspaces_color_profile_type_t type;
-      char filename[DT_IOP_COLOR_ICC_LEN];
+      char filename[DT_IOP_COLOR_ICC_LEN_V5];
       dt_iop_color_intent_t intent;
       int normalize;
       int blue_mapping;
@@ -335,7 +338,36 @@ int legacy_params(dt_iop_module_t *self, const void *const old_params, const int
 
     return 0;
   }
+  if(old_version == 5 && new_version == 6)
+  {
+    typedef struct dt_iop_colorin_params_v5_t
+    {
+      dt_colorspaces_color_profile_type_t type;
+      char filename[DT_IOP_COLOR_ICC_LEN_V5];
+      dt_iop_color_intent_t intent;
+      int normalize;
+      int blue_mapping;
+      // working color profile
+      dt_colorspaces_color_profile_type_t type_work;
+      char filename_work[DT_IOP_COLOR_ICC_LEN_V5];
+    } dt_iop_colorin_params_v5_t;
+
+    const dt_iop_colorin_params_v5_t *old = (dt_iop_colorin_params_v5_t *)old_params;
+    dt_iop_colorin_params_t *new = (dt_iop_colorin_params_t *)new_params;
+    memset(new_params, 0, sizeof(*new_params));
+
+    new->type = old->type;
+    g_strlcpy(new->filename, old->filename, sizeof(new->filename));
+    new->intent = old->intent;
+    new->normalize = old->normalize;
+    new->blue_mapping = old->blue_mapping;
+    new->type_work = old->type_work;
+    g_strlcpy(new->filename_work, old->filename_work, sizeof(new->filename_work));
+
+    return 0;
+  }
   return 1;
+#undef DT_IOP_COLOR_ICC_LEN_V5
 }
 
 void init_global(dt_iop_module_so_t *module)
@@ -446,8 +478,10 @@ static void workicc_changed(GtkWidget *widget, gpointer user_data)
     // we need to rebuild the pipe so the profile take effect
     self->dev->pipe->changed |= DT_DEV_PIPE_REMOVE;
     self->dev->preview_pipe->changed |= DT_DEV_PIPE_REMOVE;
+    self->dev->preview2_pipe->changed |= DT_DEV_PIPE_REMOVE;
     self->dev->pipe->cache_obsolete = 1;
     self->dev->preview_pipe->cache_obsolete = 1;
+    self->dev->preview2_pipe->cache_obsolete = 1;
 
     // invalidate buffers and force redraw of darkroom
     dt_dev_invalidate_all(self->dev);
@@ -1552,6 +1586,7 @@ void commit_params(struct dt_iop_module_t *self, dt_iop_params_t *p1, dt_dev_pix
   // should never happen, but catch that case to avoid a crash
   if(!d->input)
   {
+    fprintf(stderr, "[colorin] input profile could not be generated!\n");
     dt_control_log(_("input profile could not be generated!"));
     piece->enabled = 0;
     return;
@@ -1630,6 +1665,10 @@ void commit_params(struct dt_iop_module_t *self, dt_iop_params_t *p1, dt_dev_pix
   // user selected a non-supported output profile, check that:
   if(!d->xform_cam_Lab && isnan(d->cmatrix[0]))
   {
+    if(p->type == DT_COLORSPACE_FILE)
+      fprintf(stderr, "[colorin] unsupported input profile `%s' has been replaced by linear Rec709 RGB!\n", p->filename);
+    else
+      fprintf(stderr, "[colorin] unsupported input profile has been replaced by linear Rec709 RGB!\n");
     dt_control_log(_("unsupported input profile has been replaced by linear Rec709 RGB!"));
     if(d->input && d->clear_input) dt_colorspaces_cleanup_profile(d->input);
     d->nrgb = NULL;

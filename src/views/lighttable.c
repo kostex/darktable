@@ -101,6 +101,8 @@ static void _redraw_selected_images(dt_view_t *self);
 
 static gboolean _expose_again_full(gpointer user_data);
 
+static void _force_expose_all(dt_view_t *self);
+
 typedef struct dt_preview_surface_t
 {
   int mip;
@@ -280,6 +282,27 @@ static inline void filmstrip_set_active_image(dt_library_t *lib, const int imgid
   if(lib->full_preview_id > -1) lib->full_preview_id = imgid;
 }
 
+static void _scrollbars_restore()
+{
+  char *scrollbars_conf = dt_conf_get_string("scrollbars");
+
+  gboolean scrollbars_visible = FALSE;
+  if(scrollbars_conf)
+  {
+    if(strcmp(scrollbars_conf, "no scrollbars")) scrollbars_visible = TRUE;
+    g_free(scrollbars_conf);
+  }
+
+  dt_ui_scrollbars_show(darktable.gui->ui, scrollbars_visible);
+}
+
+static void _force_expose_all(dt_view_t *self)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  lib->force_expose_all = TRUE;
+  dt_control_queue_redraw_center();
+}
+
 static void check_layout(dt_view_t *self)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
@@ -316,13 +339,35 @@ static void check_layout(dt_view_t *self)
   {
     gtk_widget_hide(GTK_WIDGET(timeline->widget));
     gtk_widget_show(GTK_WIDGET(m->widget));
+    dt_ui_scrollbars_show(darktable.gui->ui, FALSE);
   }
   else
   {
     gtk_widget_hide(GTK_WIDGET(m->widget));
     if(vs) gtk_widget_show(GTK_WIDGET(timeline->widget));
     g_timeout_add(200, _expose_again_full, self);
+    _scrollbars_restore();
   }
+}
+
+static inline void _destroy_preview_surface(dt_preview_surface_t *fp_surf)
+{
+  if(fp_surf->surface) cairo_surface_destroy(fp_surf->surface);
+  fp_surf->surface = NULL;
+  if(fp_surf->rgbbuf) free(fp_surf->rgbbuf);
+  fp_surf->rgbbuf = NULL;
+  fp_surf->mip = 0;
+  fp_surf->width = 0;
+  fp_surf->height = 0;
+  fp_surf->imgid = -1;
+  fp_surf->w_lock = 0;
+
+  fp_surf->zoom_100 = 40.0f;
+  fp_surf->w_fit = 0.0f;
+  fp_surf->h_fit = 0.0f;
+
+  fp_surf->max_dx = 0.0f;
+  fp_surf->max_dy = 0.0f;
 }
 
 static void _full_preview_destroy(dt_view_t *self)
@@ -331,22 +376,7 @@ static void _full_preview_destroy(dt_view_t *self)
 
   for(int i = 0; i < FULL_PREVIEW_IN_MEMORY_LIMIT; i++)
   {
-    if(lib->fp_surf[i].surface) cairo_surface_destroy(lib->fp_surf[i].surface);
-    lib->fp_surf[i].surface = NULL;
-    if(lib->fp_surf[i].rgbbuf) free(lib->fp_surf[i].rgbbuf);
-    lib->fp_surf[i].rgbbuf = NULL;
-    lib->fp_surf[i].mip = 0;
-    lib->fp_surf[i].width = 0;
-    lib->fp_surf[i].height = 0;
-    lib->fp_surf[i].imgid = -1;
-    lib->fp_surf[i].w_lock = 0;
-
-    lib->fp_surf[i].zoom_100 = 40.0f;
-    lib->fp_surf[i].w_fit = 0.0f;
-    lib->fp_surf[i].h_fit = 0.0f;
-
-    lib->fp_surf[i].max_dx = 0.0f;
-    lib->fp_surf[i].max_dy = 0.0f;
+    _destroy_preview_surface(lib->fp_surf + i);
   }
 }
 
@@ -471,7 +501,11 @@ static void _view_lighttable_selection_listener_internal_culling(dt_view_t *self
       GList *collected = dt_collection_get_all(darktable.collection, -1);
       if(collected)
       {
-        GList *l = g_list_nth(collected, lib->last_first_selected);
+        GList *l = NULL;
+        if(g_list_length(collected) > lib->last_first_selected)
+          l = g_list_nth(collected, lib->last_first_selected);
+        else
+          l = g_list_last(collected);
         const int imgid = (l) ? GPOINTER_TO_INT(l->data) : -1;
         if(imgid >= 0) filmstrip_set_active_image(lib, imgid);
         g_list_free(collected);
@@ -544,7 +578,8 @@ static void _view_lighttable_collection_listener_callback(gpointer instance, gpo
   dt_view_t *self = (dt_view_t *)user_data;
   dt_library_t *lib = (dt_library_t *)self->data;
 
-  _view_lighttable_collection_listener_internal(self, lib);
+  if(lib->current_layout != DT_LIGHTTABLE_LAYOUT_CULLING)
+    _view_lighttable_collection_listener_internal(self, lib);
   _view_lighttable_selection_listener_internal_culling(self, lib);
 }
 
@@ -559,7 +594,8 @@ static void _view_lighttable_selection_listener_callback(gpointer instance, gpoi
   // we handle change of selection only in expose mode. it is needed
   // here as the selection from the filmstrip is actually what must be
   // displayed in the expose view.
-  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE) _view_lighttable_collection_listener_internal(self, lib);
+  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE)
+    _view_lighttable_collection_listener_internal(self, lib);
   else if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
     _view_lighttable_selection_listener_internal_culling(self, lib);
@@ -707,6 +743,75 @@ static int _get_full_preview_id(dt_view_t *self)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
   return lib->full_preview_id;
+}
+
+static inline int _get_max_in_memory_images()
+{
+  const int max_in_memory_images = dt_conf_get_int("plugins/lighttable/preview/max_in_memory_images");
+  return MIN(max_in_memory_images, FULL_PREVIEW_IN_MEMORY_LIMIT);
+}
+
+static void _sort_preview_surface(dt_library_t *lib, dt_layout_image_t *images, const int sel_img_count,
+                                  const int max_in_memory_images)
+{
+#define SWAP_PREVIEW_SURFACE(x1, x2)                                                                              \
+  {                                                                                                               \
+    dt_preview_surface_t surf_tmp = lib->fp_surf[x1];                                                             \
+    lib->fp_surf[x1] = lib->fp_surf[x2];                                                                          \
+    lib->fp_surf[x2] = surf_tmp;                                                                                  \
+  }
+
+  const int in_memory_limit = MIN(max_in_memory_images, FULL_PREVIEW_IN_MEMORY_LIMIT);
+
+  for(int i = 0; i < sel_img_count; i++)
+  {
+    // we assume that there's only one cache per image
+    if(images[i].imgid != lib->fp_surf[i].imgid)
+    {
+      int j = 0;
+      // search the image in cache
+      while(j < in_memory_limit && lib->fp_surf[j].imgid != images[i].imgid) j++;
+      // found one, swap it
+      if(j < in_memory_limit)
+        SWAP_PREVIEW_SURFACE(i, j)
+      else if(lib->fp_surf[i].imgid >= 0)
+      {
+        // check if there's an empty entry so we can save this cache
+        j = 0;
+        while(j < in_memory_limit && lib->fp_surf[j].imgid >= 0) j++;
+        // found one, swap it
+        if(j < in_memory_limit)
+          SWAP_PREVIEW_SURFACE(i, j)
+        else
+        {
+          // cache is full, get rid of the farthest one
+          const int offset_current = dt_collection_image_offset(images[i].imgid);
+          int offset_max = -1;
+          int max_i = -1;
+          j = i;
+          while(j < in_memory_limit)
+          {
+            const int offset = dt_collection_image_offset(lib->fp_surf[j].imgid);
+            if(abs(offset_current - offset) > offset_max)
+            {
+              offset_max = abs(offset_current - offset);
+              max_i = j;
+            }
+            j++;
+          }
+          if(max_i >= 0 && max_i != i) SWAP_PREVIEW_SURFACE(i, max_i)
+        }
+      }
+    }
+  }
+
+  // keep only the first max_in_memory_images cache entries
+  for(int i = max_in_memory_images; i < FULL_PREVIEW_IN_MEMORY_LIMIT; i++)
+  {
+    _destroy_preview_surface(lib->fp_surf + i);
+  }
+
+#undef SWAP_PREVIEW_SURFACE
 }
 
 void init(dt_view_t *self)
@@ -886,7 +991,6 @@ static int expose_filemanager(dt_view_t *self, cairo_t *cr, int32_t width, int32
     pango_layout_set_font_description(layout, desc);
     cairo_set_font_size(cr, fs);
     cairo_set_source_rgba(cr, .7, .7, .7, 1.0f);
-    cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     pango_layout_set_text(layout, _("there are no images in this collection"), -1);
     pango_layout_get_pixel_extents(layout, &ink, NULL);
     cairo_move_to(cr, offx, offy - ink.height - ink.x);
@@ -1741,7 +1845,7 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
       if(imgids)
         imgids = dt_util_dstrcat(imgids, ", %d", imgid);
       else
-        imgids = dt_util_dstrcat(imgids, "(%d", imgid);
+        imgids = dt_util_dstrcat(imgids, "%d", imgid);
       l = g_list_next(l);
     }
   }
@@ -1782,7 +1886,7 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
       if(imgids)
         imgids = dt_util_dstrcat(imgids, ", %d", imgid);
       else
-        imgids = dt_util_dstrcat(imgids, "(%d", imgid);
+        imgids = dt_util_dstrcat(imgids, "%d", imgid);
       l = g_list_next(l);
       i++;
     }
@@ -1791,11 +1895,10 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
     if(first_selected) g_list_free(first_selected);
   }
 
-  imgids = dt_util_dstrcat(imgids, ")");
-
   g_list_free(selected);
 
-  gchar *query =  g_strdup_printf("SELECT id, aspect_ratio, width, height FROM images WHERE id IN %s", imgids);
+  gchar *query =  g_strdup_printf("SELECT id, aspect_ratio, width, height FROM images WHERE id IN (%s) ORDER BY INSTR('%s', id)",
+                                  imgids, imgids);
 
   g_free(imgids);
 
@@ -1814,7 +1917,12 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
   {
     const int32_t id = sqlite3_column_int(stmt, 0);
     double aspect_ratio = sqlite3_column_double(stmt, 1);
-    if (!aspect_ratio) aspect_ratio = (double)sqlite3_column_int(stmt, 2) / (double)sqlite3_column_int(stmt, 3);
+    if(!aspect_ratio)
+    {
+      aspect_ratio = (double)sqlite3_column_int(stmt, 2) / (double)sqlite3_column_int(stmt, 3);
+      // record aspect ratio now
+      dt_image_set_aspect_ratio_to(id, aspect_ratio);
+    }
 
     images[i].imgid = id;
     images[i].width = (gint) (sqrt(aspect_ratio) * 100);
@@ -1987,7 +2095,11 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
     images[i].y = images[i].y * factor + yoff;
   }
 
-  const int max_in_memory_images = dt_conf_get_int("plugins/lighttable/preview/max_in_memory_images");
+  const int max_in_memory_images = _get_max_in_memory_images();
+
+  // sort lib->fp_surf to re-use cached thumbs & surface
+  if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
+    _sort_preview_surface(lib, images, sel_img_count, max_in_memory_images);
 
   for(i = 0; i < sel_img_count; i++)
   {
@@ -2150,7 +2262,7 @@ static int expose_full_preview(dt_view_t *self, cairo_t *cr, int32_t width, int3
       * Simply swapping DESC and ASC in the SQL won't help because we rely on the LIMIT clause, and
       * that LIMIT has to work with the "correct" sort order. One could use a subquery, but I don't
       * think that would be terribly elegant, either. */
-      while(--count >= 0 && preload_stack[count] != -1)
+      while(--count >= 0 && preload_stack[count] != -1 && mip != DT_MIPMAP_8)
       {
         dt_mipmap_cache_get(darktable.mipmap_cache, NULL, preload_stack[count], mip, DT_MIPMAP_PREFETCH, 'r');
       }
@@ -2678,27 +2790,11 @@ void enter(dt_view_t *self)
   lib->activate_on_release = DT_VIEW_ERR;
   dt_collection_hint_message(darktable.collection);
 
-  // hide panel if we are in full preview mode
-  if(lib->full_preview_id != -1)
-  {
-    dt_ui_panel_show(darktable.gui->ui, DT_UI_PANEL_LEFT, FALSE, FALSE);
-    dt_ui_panel_show(darktable.gui->ui, DT_UI_PANEL_RIGHT, FALSE, FALSE);
-    dt_ui_panel_show(darktable.gui->ui, DT_UI_PANEL_CENTER_BOTTOM, FALSE, FALSE);
-    dt_ui_panel_show(darktable.gui->ui, DT_UI_PANEL_CENTER_TOP, FALSE, FALSE);
-    dt_ui_panel_show(darktable.gui->ui, DT_UI_PANEL_TOP, FALSE, FALSE);
-  }
+  // restore panels
+  dt_ui_restore_panels(darktable.gui->ui);
 
-  char *scrollbars_conf = dt_conf_get_string("scrollbars");
-
-  gboolean scrollbars_visible = FALSE;
-  if(scrollbars_conf)
-  {
-    if(strcmp(scrollbars_conf, "no scrollbars"))
-      scrollbars_visible = TRUE;
-    g_free(scrollbars_conf);
-  }
-
-  dt_ui_scrollbars_show(darktable.gui->ui, scrollbars_visible);
+  // we show (or not the scrollbars)
+  _scrollbars_restore();
 }
 
 static void _ensure_image_visibility(dt_library_t *lib, uint32_t rowid)
@@ -2772,6 +2868,9 @@ static void _preview_enter(dt_view_t *self, gboolean sticky, gboolean focus, int
   dt_view_filmstrip_scroll_to_image(darktable.view_manager, lib->full_preview_id, FALSE);
   dt_ui_restore_panels(darktable.gui->ui);
 
+  // we don't need the scrollbars
+  dt_ui_scrollbars_show(darktable.gui->ui, FALSE);
+
   // preview with focus detection
   lib->display_focus = focus;
 
@@ -2821,6 +2920,10 @@ static void _preview_quit(dt_view_t *self)
     g_timeout_add(200, _expose_again_full, self);
   }
   dt_ui_restore_panels(darktable.gui->ui);
+
+  // restore scrollbars
+  _scrollbars_restore();
+
   // restore drag and drop
   _register_custom_image_order_drag_n_drop(self);
 
@@ -2947,11 +3050,11 @@ void scrolled(dt_view_t *self, double x, double y, int up, int state)
     {
       sel_img_count = get_display_num_images();
     }
+    const int max_in_memory_images = _get_max_in_memory_images();
     if((get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
-       && sel_img_count > dt_conf_get_int("plugins/lighttable/preview/max_in_memory_images"))
+       && sel_img_count > max_in_memory_images)
     {
-      dt_control_log(_("zooming is limited to %d images"),
-                     dt_conf_get_int("plugins/lighttable/preview/max_in_memory_images"));
+      dt_control_log(_("zooming is limited to %d images"), max_in_memory_images);
     }
     else
     {
@@ -3110,9 +3213,7 @@ void mouse_moved(dt_view_t *self, double x, double y, double pressure, int which
       }
       for(int i = 0; i < sel_img_count; i++)
       {
-        dx = fminf(dx, -lib->fp_surf[i].max_dx);
         dx = fmaxf(dx, lib->fp_surf[i].max_dx);
-        dy = fminf(dy, -lib->fp_surf[i].max_dy);
         dy = fmaxf(dy, lib->fp_surf[i].max_dy);
       }
       lib->full_x = fminf(lib->full_x, dx);
@@ -3815,6 +3916,39 @@ static void display_intent_callback(GtkWidget *combo, gpointer user_data)
   }
 }
 
+static void display2_intent_callback(GtkWidget *combo, gpointer user_data)
+{
+  const int pos = dt_bauhaus_combobox_get(combo);
+
+  dt_iop_color_intent_t new_intent = darktable.color_profiles->display2_intent;
+
+  // we are not using the int value directly so it's robust against changes on lcms' side
+  switch(pos)
+  {
+    case 0:
+      new_intent = DT_INTENT_PERCEPTUAL;
+      break;
+    case 1:
+      new_intent = DT_INTENT_RELATIVE_COLORIMETRIC;
+      break;
+    case 2:
+      new_intent = DT_INTENT_SATURATION;
+      break;
+    case 3:
+      new_intent = DT_INTENT_ABSOLUTE_COLORIMETRIC;
+      break;
+  }
+
+  if(new_intent != darktable.color_profiles->display2_intent)
+  {
+    darktable.color_profiles->display2_intent = new_intent;
+    pthread_rwlock_rdlock(&darktable.color_profiles->xprofile_lock);
+    dt_colorspaces_update_display2_transforms();
+    pthread_rwlock_unlock(&darktable.color_profiles->xprofile_lock);
+    dt_control_queue_redraw_center();
+  }
+}
+
 static void display_profile_callback(GtkWidget *combo, gpointer user_data)
 {
   gboolean profile_changed = FALSE;
@@ -3849,8 +3983,111 @@ end:
     pthread_rwlock_rdlock(&darktable.color_profiles->xprofile_lock);
     dt_colorspaces_update_display_transforms();
     pthread_rwlock_unlock(&darktable.color_profiles->xprofile_lock);
+    dt_control_signal_raise(darktable.signals, DT_SIGNAL_CONTROL_PROFILE_USER_CHANGED,
+                            DT_COLORSPACES_PROFILE_TYPE_DISPLAY);
     dt_control_queue_redraw_center();
   }
+}
+
+static void display2_profile_callback(GtkWidget *combo, gpointer user_data)
+{
+  gboolean profile_changed = FALSE;
+  const int pos = dt_bauhaus_combobox_get(combo);
+  for(GList *profiles = darktable.color_profiles->profiles; profiles; profiles = g_list_next(profiles))
+  {
+    dt_colorspaces_color_profile_t *pp = (dt_colorspaces_color_profile_t *)profiles->data;
+    if(pp->display2_pos == pos)
+    {
+      if(darktable.color_profiles->display2_type != pp->type
+         || (darktable.color_profiles->display2_type == DT_COLORSPACE_FILE
+             && strcmp(darktable.color_profiles->display2_filename, pp->filename)))
+      {
+        darktable.color_profiles->display2_type = pp->type;
+        g_strlcpy(darktable.color_profiles->display2_filename, pp->filename,
+                  sizeof(darktable.color_profiles->display2_filename));
+        profile_changed = TRUE;
+      }
+      goto end;
+    }
+  }
+
+  // profile not found, fall back to system display2 profile. shouldn't happen
+  fprintf(stderr, "can't find preview display profile `%s', using system display profile instead\n",
+          dt_bauhaus_combobox_get_text(combo));
+  profile_changed = darktable.color_profiles->display2_type != DT_COLORSPACE_DISPLAY2;
+  darktable.color_profiles->display2_type = DT_COLORSPACE_DISPLAY2;
+  darktable.color_profiles->display2_filename[0] = '\0';
+
+end:
+  if(profile_changed)
+  {
+    pthread_rwlock_rdlock(&darktable.color_profiles->xprofile_lock);
+    dt_colorspaces_update_display2_transforms();
+    pthread_rwlock_unlock(&darktable.color_profiles->xprofile_lock);
+    dt_control_signal_raise(darktable.signals, DT_SIGNAL_CONTROL_PROFILE_USER_CHANGED,
+                            DT_COLORSPACES_PROFILE_TYPE_DISPLAY2);
+    dt_control_queue_redraw_center();
+  }
+}
+
+static void _update_display_profile_cmb(GtkWidget *cmb_display_profile)
+{
+  GList *l = darktable.color_profiles->profiles;
+  while(l)
+  {
+    dt_colorspaces_color_profile_t *prof = (dt_colorspaces_color_profile_t *)l->data;
+    if(prof->display_pos > -1)
+    {
+      if(prof->type == darktable.color_profiles->display_type
+         && (prof->type != DT_COLORSPACE_FILE
+             || !strcmp(prof->filename, darktable.color_profiles->display_filename)))
+      {
+        if(dt_bauhaus_combobox_get(cmb_display_profile) != prof->display_pos)
+        {
+          dt_bauhaus_combobox_set(cmb_display_profile, prof->display_pos);
+          break;
+        }
+      }
+    }
+    l = g_list_next(l);
+  }
+}
+
+static void _update_display2_profile_cmb(GtkWidget *cmb_display_profile)
+{
+  GList *l = darktable.color_profiles->profiles;
+  while(l)
+  {
+    dt_colorspaces_color_profile_t *prof = (dt_colorspaces_color_profile_t *)l->data;
+    if(prof->display2_pos > -1)
+    {
+      if(prof->type == darktable.color_profiles->display2_type
+         && (prof->type != DT_COLORSPACE_FILE
+             || !strcmp(prof->filename, darktable.color_profiles->display2_filename)))
+      {
+        if(dt_bauhaus_combobox_get(cmb_display_profile) != prof->display2_pos)
+        {
+          dt_bauhaus_combobox_set(cmb_display_profile, prof->display2_pos);
+          break;
+        }
+      }
+    }
+    l = g_list_next(l);
+  }
+}
+
+static void _display_profile_changed(gpointer instance, uint8_t profile_type, gpointer user_data)
+{
+  GtkWidget *cmb_display_profile = GTK_WIDGET(user_data);
+
+  _update_display_profile_cmb(cmb_display_profile);
+}
+
+static void _display2_profile_changed(gpointer instance, uint8_t profile_type, gpointer user_data)
+{
+  GtkWidget *cmb_display_profile = GTK_WIDGET(user_data);
+
+  _update_display2_profile_cmb(cmb_display_profile);
 }
 
 void gui_init(dt_view_t *self)
@@ -3858,7 +4095,7 @@ void gui_init(dt_view_t *self)
   dt_library_t *lib = (dt_library_t *)self->data;
 
   // create display profile button
-  GtkWidget *const profile_button = dtgtk_button_new(dtgtk_cairo_paint_display, CPF_STYLE_FLAT | CPF_DO_NOT_USE_BORDER,
+  GtkWidget *const profile_button = dtgtk_button_new(dtgtk_cairo_paint_display, CPF_STYLE_FLAT,
                                                      NULL);
   gtk_widget_set_tooltip_text(profile_button, _("set display profile"));
   dt_view_manager_module_toolbox_add(darktable.view_manager, profile_button, DT_VIEW_LIGHTTABLE);
@@ -3873,11 +4110,7 @@ void gui_init(dt_view_t *self)
 #endif
   g_signal_connect_swapped(G_OBJECT(profile_button), "button-press-event", G_CALLBACK(gtk_widget_show_all), lib->profile_floating_window);
 
-  GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-  gtk_widget_set_margin_start(vbox, DT_PIXEL_APPLY_DPI(8));
-  gtk_widget_set_margin_end(vbox, DT_PIXEL_APPLY_DPI(8));
-  gtk_widget_set_margin_top(vbox, DT_PIXEL_APPLY_DPI(8));
-  gtk_widget_set_margin_bottom(vbox, DT_PIXEL_APPLY_DPI(8));
+  GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
   gtk_container_add(GTK_CONTAINER(lib->profile_floating_window), vbox);
 
@@ -3895,9 +4128,21 @@ void gui_init(dt_view_t *self)
   dt_bauhaus_combobox_add(display_intent, C_("rendering intent", "saturation"));
   dt_bauhaus_combobox_add(display_intent, _("absolute colorimetric"));
 
+  GtkWidget *display2_intent = dt_bauhaus_combobox_new(NULL);
+  dt_bauhaus_widget_set_label(display2_intent, NULL, _("preview display intent"));
+  gtk_box_pack_start(GTK_BOX(vbox), display2_intent, TRUE, TRUE, 0);
+  dt_bauhaus_combobox_add(display2_intent, _("perceptual"));
+  dt_bauhaus_combobox_add(display2_intent, _("relative colorimetric"));
+  dt_bauhaus_combobox_add(display2_intent, C_("rendering intent", "saturation"));
+  dt_bauhaus_combobox_add(display2_intent, _("absolute colorimetric"));
+
   GtkWidget *display_profile = dt_bauhaus_combobox_new(NULL);
   dt_bauhaus_widget_set_label(display_profile, NULL, _("display profile"));
   gtk_box_pack_start(GTK_BOX(vbox), display_profile, TRUE, TRUE, 0);
+
+  GtkWidget *display2_profile = dt_bauhaus_combobox_new(NULL);
+  dt_bauhaus_widget_set_label(display2_profile, NULL, _("preview display profile"));
+  gtk_box_pack_start(GTK_BOX(vbox), display2_profile, TRUE, TRUE, 0);
 
   for(GList *profiles = darktable.color_profiles->profiles; profiles; profiles = g_list_next(profiles))
   {
@@ -3912,19 +4157,34 @@ void gui_init(dt_view_t *self)
         dt_bauhaus_combobox_set(display_profile, prof->display_pos);
       }
     }
+    if(prof->display2_pos > -1)
+    {
+      dt_bauhaus_combobox_add(display2_profile, prof->name);
+      if(prof->type == darktable.color_profiles->display2_type
+         && (prof->type != DT_COLORSPACE_FILE
+             || !strcmp(prof->filename, darktable.color_profiles->display2_filename)))
+      {
+        dt_bauhaus_combobox_set(display2_profile, prof->display2_pos);
+      }
+    }
   }
 
   char *system_profile_dir = g_build_filename(datadir, "color", "out", NULL);
   char *user_profile_dir = g_build_filename(confdir, "color", "out", NULL);
   char *tooltip = g_strdup_printf(_("display ICC profiles in %s or %s"), user_profile_dir, system_profile_dir);
   gtk_widget_set_tooltip_text(display_profile, tooltip);
+  g_free(tooltip);
+  tooltip = g_strdup_printf(_("preview display ICC profiles in %s or %s"), user_profile_dir, system_profile_dir);
+  gtk_widget_set_tooltip_text(display2_profile, tooltip);
+  g_free(tooltip);
   g_free(system_profile_dir);
   g_free(user_profile_dir);
-  g_free(tooltip);
-
 
   g_signal_connect(G_OBJECT(display_intent), "value-changed", G_CALLBACK(display_intent_callback), NULL);
   g_signal_connect(G_OBJECT(display_profile), "value-changed", G_CALLBACK(display_profile_callback), NULL);
+
+  g_signal_connect(G_OBJECT(display2_intent), "value-changed", G_CALLBACK(display2_intent_callback), NULL);
+  g_signal_connect(G_OBJECT(display2_profile), "value-changed", G_CALLBACK(display2_profile_callback), NULL);
 
   GList *first_selected = dt_collection_get_selected(darktable.collection, 1);
   GList *collected = dt_collection_get_all(darktable.collection, -1);
@@ -3951,6 +4211,15 @@ void gui_init(dt_view_t *self)
   }
   if(first_selected) g_list_free(first_selected);
   if(collected) g_list_free(collected);
+
+  // update the gui when profiles change
+  dt_control_signal_connect(darktable.signals, DT_SIGNAL_CONTROL_PROFILE_USER_CHANGED,
+                            G_CALLBACK(_display_profile_changed), (gpointer)display_profile);
+  dt_control_signal_connect(darktable.signals, DT_SIGNAL_CONTROL_PROFILE_USER_CHANGED,
+                            G_CALLBACK(_display2_profile_changed), (gpointer)display2_profile);
+
+  // proxy
+  darktable.view_manager->proxy.lighttable.force_expose_all = _force_expose_all;
 }
 
 static gboolean _is_order_actif(dt_view_t *self, dt_collection_sort_t sort)
