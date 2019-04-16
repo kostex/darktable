@@ -122,28 +122,34 @@
 @define-color brush_trace alpha(black, .8);
 
 /* Lighttable and film-strip */
+@define-color thumbnail_bg_color @grey_45; /* area between border and outline */
+@define-color thumbnail_selected_bg_color @grey_65;
+@define-color thumbnail_hover_bg_color @grey_80;
+@define-color thumbnail_outline_color @grey_20; /* square around image+metadata */
+@define-color thumbnail_selected_outline_color @grey_45;
+@define-color thumbnail_hover_outline_color @grey_65;
+@define-color thumbnail_font_color @grey_45;
+@define-color thumbnail_selected_font_color @grey_50;
+@define-color thumbnail_hover_font_color @grey_75;
+@define-color thumbnail_border_color @grey_15; /* rectangle directly around image */
+@define-color thumbnail_selected_border_color @grey_90;
 @define-color filmstrip_bg_color @lighttable_bg_color;
 
-@define-color thumbnail_bg_color #666666; /* area between border and outline */
-@define-color thumbnail_selected_bg_color #88bb00;
-@define-color thumbnail_hover_bg_color #ffd633;
-@define-color thumbnail_outline_color #fffae6; /* square around image+metadata */
-@define-color thumbnail_selected_outline_color #88bb00;
-@define-color thumbnail_hover_outline_color #fffae6;
-@define-color thumbnail_font_color #666666;
-@define-color thumbnail_selected_font_color #ff0000;
-@define-color thumbnail_hover_font_color #b2b2b2;
-@define-color thumbnail_border_color #191919; /* rectangle directly around image */
-@define-color thumbnail_selected_border_color #ffffae;
-@define-color ktx_1_color #1a1400;
-
+/* Graphs */
+@define-color graph_bg @grey_10;
+@define-color graph_border @grey_05;
+@define-color graph_fg @grey_75;
+@define-color graph_fg_active @grey_95;
+@define-color graph_grid #000;
+@define-color inset_histogram alpha(@grey_65, 0.50);
 
 /* Reset GTK defaults */
 
-* {
+*
+{
   background-color: @bg_color;
   background-image: none;
-  font-family: "Roboto Light", "Segoe UI Light", "SF Pro Display Light", "Ubuntu Light", "Cantarell", sans-serif;
+  font-family: sans-serif;
   font-size: 1em;
   color: @fg_color;
   text-shadow:none;
@@ -203,7 +209,7 @@ eventbox *,
 box,
 box *
 {
-  font-family: "Roboto Light", "Segoe UI Light", "SF Pro Display Light", "Ubuntu Light", "Cantarell", sans-serif;
+  font-family: sans-serif;
   font-size: 1em;
   background-color: transparent;
   background-image: none;
@@ -219,7 +225,8 @@ box *
 
 /* General properties */
 
-*:disabled {
+*:disabled
+{
   color: shade(@fg_color, .33);
 }
 
@@ -301,7 +308,7 @@ button
   background-color: @button_bg;
   color: @button_fg;
   font-weight: 600;
-  font-family: "Roboto Medium", "Segoe UI Semibold", "SF Pro Display Medium", "Ubuntu Medium", "Cantarell", sans-serif;
+  font-family: sans-serif;
   min-height: 1em;
   min-width: 1em;
 }
@@ -312,6 +319,7 @@ button
   background-color: transparent;
   border-color: transparent;
   border: 0;
+  font-weight: normal;
 }
 
 button:selected,
@@ -322,7 +330,8 @@ button:checked,
 #recent-collection-button:active,
 #history-button:active,
 #recent-collection-button:checked,
-#history-button:checked {
+#history-button:checked
+{
   background-color: @button_checked_bg;
   color: @button_checked_fg;
 }
@@ -395,7 +404,8 @@ checkbutton check
 
 /* Text fields and text boxes */
 
-entry {
+entry
+{
   border-radius: 2pt;
   border: 0.5pt solid @border_color;
   color: @field_fg;
@@ -404,7 +414,8 @@ entry {
   min-width: 0;
 }
 
-entry:hover {
+entry:hover
+{
   color: @field_hover_fg;
   background-color: @field_hover_bg;
 }
@@ -412,12 +423,13 @@ entry:hover {
 entry:checked,
 entry:active,
 entry:focus
- {
+{
   color: @field_active_fg;
   background-color: @field_active_bg;
 }
 
-entry selection {
+entry selection
+{
   background-color: @field_select_bg;
 }
 
@@ -444,7 +456,7 @@ entry selection {
   padding: 0 2pt 2pt 0.5em;
   font-weight: 400;
   font-stretch: condensed;
-  font-family: "Roboto Condensed","Segoe UI Condensed", "SF Pro Display", "Ubuntu Condensed", "Cantarell", sans-serif;
+  font-family: sans-serif;
   font-size: 0.9em;
 }
 
@@ -455,7 +467,7 @@ entry selection {
   color: @section_label;
   border-bottom: 0.5pt solid  @section_label;
   font-weight: 600;
-  font-family: "Roboto Medium", "Segoe UI Semibold", "SF Pro Display Medium", "Ubuntu Medium", "Cantarell", sans-serif;
+  font-family: sans-serif;
 }
 
 #iop-plugin-ui #section_label,
@@ -573,7 +585,14 @@ scale contents trough slider:focus
 combobox,
 combobox button
 {
-  margin:5pt;
+  border: 1px solid transparent;
+  padding: 1px;
+  background-color: transparent;
+  border-radius: 2pt;
+  color: @bauhaus_fg;
+  outline-style: none;
+  min-height: 1em;
+  min-width: 1em;
 }
 
 combobox entry
@@ -596,8 +615,15 @@ popover,
 combobox window,
 dialog combobox window
 {
-    border-color: shade(@selected_bg_color, 1.7);
-    background-color: @selected_bg_color;
+  background-color: @tooltip_bg_color;
+  color: @tooltip_fg_color;
+  outline-style:none;
+  border-radius: 2pt;
+  border: 0;
+  outline-style: none;
+  min-height: 0.5em;
+  min-width: 0.5em;
+  padding: 0.5em;
 }
 
 #view_dropdown,
@@ -639,7 +665,8 @@ combobox window *:focus
 }
 
 #view_dropdown *:selected,
-#view_label:selected {
+#view_label:selected
+{
   color: @plugin_fg_color;
 }
 
@@ -692,7 +719,7 @@ notebook tabs,
   margin: 0;
   color: @button_fg;
   font-weight: 400;
-  font-family: "Roboto", "Segoe UI", "SF Pro Text", "Cantarell", sans-serif;
+  font-family: sans-serif;
 }
 
 #modules-tabs,
