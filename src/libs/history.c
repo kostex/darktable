@@ -113,17 +113,17 @@ void gui_init(dt_lib_module_t *self)
 
   GtkWidget *hhbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 
-  d->compress_button = gtk_button_new_with_label(_("compress stack"));
+  d->compress_button = gtk_button_new_with_label(_("compress"));
   gtk_label_set_xalign (GTK_LABEL(gtk_bin_get_child(GTK_BIN(d->compress_button))), 0.0f);
   gtk_widget_set_tooltip_text(d->compress_button, _("create a minimal history stack which produces the same image"));
   g_signal_connect(G_OBJECT(d->compress_button), "clicked", G_CALLBACK(_lib_history_compress_clicked_callback), NULL);
 
-  d->ktx_deletesel_button = gtk_button_new_with_label(_("delete selected"));
+  d->ktx_deletesel_button = gtk_button_new_with_label(_("delete"));
   gtk_label_set_xalign (GTK_LABEL(gtk_bin_get_child(GTK_BIN(d->ktx_deletesel_button))), 0.0f);
   gtk_widget_set_tooltip_text(d->ktx_deletesel_button, _("delete selected module"));
   g_signal_connect(G_OBJECT(d->ktx_deletesel_button), "clicked", G_CALLBACK(_lib_history_ktx_deletesel_clicked_callback), NULL);
 
-  d->ktx_delete_button = gtk_button_new_with_label(_("delete stack"));
+  d->ktx_delete_button = gtk_button_new_with_label(_("reset"));
   gtk_label_set_xalign (GTK_LABEL(gtk_bin_get_child(GTK_BIN(d->ktx_delete_button))), 0.0f);
   gtk_widget_set_tooltip_text(d->ktx_delete_button, _("delete history stack"));
   g_signal_connect(G_OBJECT(d->ktx_delete_button), "clicked", G_CALLBACK(_lib_history_ktx_delete_clicked_callback), NULL);

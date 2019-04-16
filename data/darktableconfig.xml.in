@@ -2,41 +2,6 @@
 <!DOCTYPE dtconfiglist SYSTEM "darktableconfig.dtd">
 <dtconfiglist>
   <dtconfig prefs="gui" section="darkroom">
-    <name>ktx/line_space</name>
-    <type>int</type>
-    <default>2</default>
-    <shortdescription>line spacing</shortdescription>
-    <longdescription>n.a.</longdescription>
-  </dtconfig>
-  <dtconfig prefs="gui" section="darkroom">
-    <name>ktx/line_height</name>
-    <type>int</type>
-    <default>11</default>
-    <shortdescription>line height</shortdescription>
-    <longdescription>n.a.</longdescription>
-  </dtconfig>
-  <dtconfig prefs="gui" section="darkroom">
-    <name>ktx/marker_size</name>
-    <type>float</type>
-    <default>0.3</default>
-    <shortdescription>marker size</shortdescription>
-    <longdescription>n.a.</longdescription>
-  </dtconfig>
-  <dtconfig prefs="gui" section="darkroom">
-    <name>ktx/label_font_size</name>
-    <type>float</type>
-    <default>0.6</default>
-    <shortdescription>label font size</shortdescription>
-    <longdescription>n.a.</longdescription>
-  </dtconfig>
-  <dtconfig prefs="gui" section="darkroom">
-    <name>ktx/value_font_size</name>
-    <type>float</type>
-    <default>0.6</default>
-    <shortdescription>value font size</shortdescription>
-    <longdescription>n.a.</longdescription>
-  </dtconfig>
-  <dtconfig prefs="gui" section="darkroom">
     <name>ktx/delete_off_modules</name>
     <type>bool</type>
     <default>false</default>

@@ -480,13 +480,11 @@ void dt_bauhaus_init()
   darktable.bauhaus->popup_area = gtk_drawing_area_new();
   gtk_widget_set_name(darktable.bauhaus->popup_area, "bauhaus-popup");
 
-  darktable.bauhaus->line_space = dt_conf_get_int("ktx/line_space");
-  darktable.bauhaus->line_height = dt_conf_get_int("ktx/line_height");
-  darktable.bauhaus->marker_size = dt_conf_get_float("ktx/marker_size");
-  darktable.bauhaus->label_font_size = dt_conf_get_float("ktx/label_font_size");
-  darktable.bauhaus->value_font_size = dt_conf_get_float("ktx/value_font_size");
-  g_strlcpy(darktable.bauhaus->label_font, "sans", sizeof(darktable.bauhaus->label_font));
-  g_strlcpy(darktable.bauhaus->value_font, "sans", sizeof(darktable.bauhaus->value_font));
+  darktable.bauhaus->line_space = 1.5;
+  darktable.bauhaus->line_height = 10;
+  darktable.bauhaus->marker_size = 0.25f;
+  darktable.bauhaus->label_font_size = 0.6f;
+  darktable.bauhaus->value_font_size = 0.6f;
 
   GtkWidget *root_window = dt_ui_main_window(darktable.gui->ui);
   GtkStyleContext *ctx = gtk_style_context_new();

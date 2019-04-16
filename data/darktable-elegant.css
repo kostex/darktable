@@ -506,7 +506,7 @@ dialog scrollbar slider
   background-color: @scroll_bar_inactive;
   border: 2pt solid transparent;
   margin: 0;
-  min-width: 4pt;
+  min-width: 8pt;
   min-height: 4pt;
 }
 
@@ -548,9 +548,9 @@ dialog scrollbar
 {
   border-color: @scroll_bar_bg;
   background: @scroll_bar_bg;
-  border-radius: 4pt;
+  border-radius: 0pt;
   min-height: 4pt;
-  min-width: 4pt;
+  min-width: 2pt;
   margin: 1pt;
 }
 
@@ -580,7 +580,14 @@ scale contents trough slider:focus
 combobox,
 combobox button
 {
-  margin:5pt;
+  border: 1px solid transparent;
+  padding: 1px;
+  background-color: transparent;
+  border-radius: 2pt;
+  color: @bauhaus_fg;
+  outline-style: none;
+  min-height: 1em;
+  min-width: 1em;
 }
 
 combobox entry
@@ -603,8 +610,15 @@ popover,
 combobox window,
 dialog combobox window
 {
-    border-color: shade(@selected_bg_color, 1.7);
-    background-color: @selected_bg_color;
+  background-color: @tooltip_bg_color;
+  color: @tooltip_fg_color;
+  outline-style:none;
+  border-radius: 2pt;
+  border: 0;
+  outline-style: none;
+  min-height: 0.5em;
+  min-width: 0.5em;
+  padding: 0.5em;
 }
 
 #view_dropdown,
