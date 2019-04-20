@@ -85,7 +85,7 @@
 @define-color bauhaus_indicator_border @grey_20;
 @define-color bauhaus_fill @grey_40;
 @define-color bauhaus_bg @grey_15;
-@define-color bauhaus_fg_hover @grey_80;
+@define-color bauhaus_fg_hover @grey_90;
 @define-color bauhaus_fg_insensitive alpha(@bauhaus_fg, 0.5);
 
 @define-color button_bg @grey_25;
@@ -389,6 +389,46 @@ button:disabled,
   background-color: transparent;
   min-height: 1em;
   min-width: 1em;
+}
+
+#control-button
+{
+    background-color: transparent;
+    min-height: 1em;
+    min-width: 1em;
+    padding: 0.2em;
+    margin: 0;
+    border: 0;
+}
+
+#control-button:hover
+{
+    color: @button_hover_fg;
+    background-color: @button_hover_bg;
+    min-height: 1em;
+    min-width: 1em;
+    padding: 0.2em;
+    border: 0;
+    margin: 0;
+}
+
+#lib-plugin-ui #control-button
+{
+    background-color: transparent;
+    min-height: 1em;
+    padding: 0.6em;
+    margin: 0;
+    border: 0;
+}
+
+#lib-plugin-ui #control-button:hover
+{
+    color: @button_hover_fg;
+    background-color: @button_hover_bg;
+    min-height: 1em;
+    padding: 0.6em;
+    border: 0;
+    margin: 0;
 }
 
 /* Checkbox */
@@ -905,6 +945,11 @@ checkbutton check
   margin: 2pt;
 }
 
+#iop-bottom-bar
+{
+    min-height: 1.2em;
+}
+
 combobox label
 {
   margin: 0 5px 0 0;
@@ -977,4 +1022,12 @@ cell:selected
     font-size: 1.3em;
     margin-left: 10em;
     margin-right: 10em;
+}
+
+/* Color picker */
+
+#color-picker-area
+{
+    min-height: 9em;
+    min-width: 9em;
 }
