@@ -414,7 +414,7 @@ void gui_init(dt_lib_module_t *self)
   gtk_widget_set_tooltip_text(GTK_WIDGET(d->compress_button), _("compress history stack of\nall selected images"));
   gtk_grid_attach(grid, GTK_WIDGET(d->compress_button), 0, line, 3, 1);
 
-  GtkWidget *delete = gtk_button_new_with_label(_("discard history"));
+  GtkWidget *delete = gtk_button_new_with_label(_("discard"));
   ellipsize_button(delete);
   d->delete_button = delete;
   gtk_widget_set_tooltip_text(delete, _("discard history stack of\nall selected images"));
@@ -468,8 +468,8 @@ void init_key_accels(dt_lib_module_t *self)
 {
   dt_accel_register_lib(self, NC_("accel", "copy all"), GDK_KEY_c, GDK_CONTROL_MASK);
   dt_accel_register_lib(self, NC_("accel", "copy"), GDK_KEY_c, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
-  dt_accel_register_lib(self, NC_("accel", "compress history"), 0, 0);
-  dt_accel_register_lib(self, NC_("accel", "discard history"), 0, 0);
+  dt_accel_register_lib(self, NC_("accel", "compress"), 0, 0);
+  dt_accel_register_lib(self, NC_("accel", "discard"), 0, 0);
   dt_accel_register_lib(self, NC_("accel", "paste all"), GDK_KEY_v, GDK_CONTROL_MASK);
   dt_accel_register_lib(self, NC_("accel", "paste"), GDK_KEY_v, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
   dt_accel_register_lib(self, NC_("accel", "load sidecar files"), 0, 0);
