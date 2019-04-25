@@ -61,12 +61,13 @@
 
 
 /* General */
-@define-color selected_bg_color @grey_25;
-@define-color border_color @grey_10;
-@define-color bg_color @grey_15;
-@define-color fg_color @grey_75;
-@define-color base_color @fg_color;
-@define-color text_color @grey_05;
+@define-color selected_bg_color @grey_25; /* legacy stuff */
+@define-color border_color @grey_10; /* border, when used */
+@define-color bg_color @grey_15; /* general background */
+@define-color fg_color @grey_75; /* general text */
+@define-color base_color @fg_color; /* legacy stuff */
+@define-color text_color @grey_05; /* same */
+@define-color disabled_fg_color @grey_40; /* disabled controls */
 
 /* Scroll bars (sliders) */
 @define-color scroll_bar_inactive @grey_40;
@@ -74,12 +75,13 @@
 @define-color scroll_bar_focus @grey_45;
 @define-color scroll_bar_bg @grey_10;
 
-/* Modules box */
+/* Modules box (plugins) */
 @define-color plugin_bg_color @grey_20;
 @define-color plugin_fg_color @grey_80;
 @define-color section_label @grey_55;
+@define-color plugin_label_color @grey_55;
 
-/* Modules controls */
+/* Modules controls (sliders and comboboxes) */
 @define-color bauhaus_fg @grey_70;
 @define-color bauhaus_border shade(@plugin_bg_color, 0.5);
 @define-color bauhaus_indicator_border @grey_20;
@@ -88,6 +90,7 @@
 @define-color bauhaus_fg_hover @grey_90;
 @define-color bauhaus_fg_insensitive alpha(@bauhaus_fg, 0.5);
 
+/* GTK Buttons and tabs */
 @define-color button_bg @grey_25;
 @define-color button_fg @grey_85;
 @define-color button_border @grey_30;
@@ -98,6 +101,7 @@
 @define-color button_hover_bg @grey_65;
 @define-color button_hover_fg @grey_15;
 
+/* text fields */
 @define-color field_bg @grey_15;
 @define-color field_fg @grey_75;
 @define-color field_active_bg @grey_20;
@@ -135,7 +139,7 @@
 @define-color thumbnail_selected_border_color @grey_90;
 @define-color filmstrip_bg_color @lighttable_bg_color;
 
-/* Graphs */
+/* Graphs : histogram and tone curve */
 @define-color graph_bg @grey_10;
 @define-color graph_border @grey_05;
 @define-color graph_fg @grey_75;
@@ -143,7 +147,7 @@
 @define-color graph_grid #000;
 @define-color inset_histogram alpha(@grey_65, 0.50);
 
-/* Reset GTK defaults */
+/* Reset GTK defaults - Otherwise dt inherits Adwaita default theme dark */
 
 *
 {
@@ -227,7 +231,7 @@ box *
 
 *:disabled
 {
-  color: shade(@fg_color, .33);
+  color: @disabled_fg_color;
 }
 
 
@@ -245,18 +249,12 @@ box *
 
 #left
 {
-  /*padding-right: 5px;*/
+  /* left sidebar */
 }
 
 #right
 {
-  /*padding-left: 5px;*/
-}
-
-#header-toolbar,
-#footer-toolbar
-{
-  padding: 0.20em 0.40em;
+  /* right sidebar */
 }
 
 #left scrolledwindow,
@@ -266,14 +264,14 @@ box *
   padding: 0;
 }
 
-#lib-plugin-ui scrolledwindow,
-#iop-plugin-ui scrolledwindow
+#header-toolbar,
+#footer-toolbar
 {
-  margin: 0;
-  padding: 0;
+  padding: 0.20em 0.40em;
 }
 
-/* Frame around plugin boxes */
+/* Frame around modules boxes */
+/* NOTE : Bauhaus controls inherit their font properties from there */
 
 #lib-plugin-ui,
 #iop-plugin-ui
@@ -282,6 +280,13 @@ box *
   border-radius: 0;
   color: @plugin_fg_color;
   background-color: @plugin_bg_color;
+}
+
+#lib-plugin-ui scrolledwindow,
+#iop-plugin-ui scrolledwindow
+{
+  margin: 0;
+  padding: 0;
 }
 
 #iop-plugin-ui-main,
@@ -293,11 +298,12 @@ box *
 
 #module-header
 {
- padding: 0.5em 0.5em 0.25em 0.5em;
+  /* module name */
+  padding: 0.5em 0.5em 0.25em 0.5em;
 }
 
 
-/* Buttons */
+/* GTK Buttons */
 
 button
 {
@@ -316,6 +322,8 @@ button
 #recent-collection-button,
 #history-button
 {
+  /* Exception because history and recent collections modules make use of a
+   * list of GTK buttons but we don't want them to look like action buttons */
   background-color: transparent;
   border-color: transparent;
   border: 0;
@@ -356,7 +364,7 @@ button:disabled,
 #recent-collection-button:disabled,
 #history-button:disabled
 {
-  color: @bg_color;
+  color: @disabled_fg_color;
   background-color: transparent;
 }
 
@@ -367,6 +375,7 @@ button:disabled,
   border-radius: 2px;
 }
 
+/* Buttons in toolbars in lighttable and darkroom */
 #header-toolbar #dt-toggle-button,
 #header-toolbar #dt-button,
 #footer-toolbar #dt-toggle-button,
@@ -379,6 +388,7 @@ button:disabled,
   font-size: .7em;
 }
 
+/* Buttons in modules header, near the module name */
 #module-preset-button * button,
 #module-reset-button * button,
 #module-enable-button * button,
@@ -391,6 +401,7 @@ button:disabled,
   min-width: 1em;
 }
 
+/* Button to open/close the dropdown section */
 #control-button
 {
     background-color: transparent;
@@ -452,6 +463,7 @@ entry
   background-color: @field_bg;
   min-height: 0;
   min-width: 0;
+  padding-left: 3pt;
 }
 
 entry:hover
@@ -474,7 +486,7 @@ entry selection
 }
 
 
-/* Labels */
+/* Labels in views */
 
 #header_label,
 #darktable_label,
@@ -488,10 +500,12 @@ entry selection
   padding:0;
 }
 
+/* Labels in modules */
 #iop-panel-label,
 #lib-panel-label
 {
   background-color: @bg_color;
+  color: @plugin_label_color;
   border:0;
   padding: 0 2pt 2pt 0.5em;
   font-weight: 400;
@@ -500,6 +514,7 @@ entry selection
   font-size: 0.9em;
 }
 
+/* Labels of controls sections in modules */
 #section_label
 {
   margin: 0 0 6pt 0;
@@ -515,6 +530,8 @@ entry selection
 {
   margin: 12pt 0 6pt 0;
 }
+
+/* Special modules */
 
 #lib-modulelist
 {
@@ -536,12 +553,15 @@ entry selection
   padding: 0.25em;
 }
 
+/* Widget for parametric blending options in modules */
+
 #blending-box #section_label
 {
   margin: 0 0 6pt 0;
 }
 
-/* sliders and scales */
+/* GTK sliders and scales */
+/* WARNING : sliders IN modules are bauhaus (from a custom lib in darktable), not standard GTK sliders (see below) */
 
 #lib-plugin-ui scrollbar slider,
 #iop-plugin-ui scrollbar slider,
@@ -748,7 +768,7 @@ treeview *:selected
     color: @button_fg;
 }
 
-/* Notebooks tabs */
+/* GTK Notebooks tabs */
 
 notebook tabs,
 #modules-tabs,
@@ -821,7 +841,7 @@ notebook tab:focus label
   color: @button_checked_fg;
 }
 
-/* Bauhaus controls (sliders and comboboxes) */
+/* Bauhaus controls (sliders and comboboxes in modules) */
 
 #bauhaus-popup
 {
@@ -841,7 +861,6 @@ notebook tab:focus label
   background-color: transparent;
   color: @bauhaus_fg;
 }
-
 
 #bauhaus-popup:hover,
 #bauhaus-combobox:hover,
@@ -895,12 +914,19 @@ dialog scrolledwindow
 }
 
 /* empty space at top/bottom of sidepanels when scrolled */
-undershoot.top,
-undershoot.bottom,
-undershoot.left,
-undershoot.right
+.undershoot,
+.undershoot.top,
+.undershoot.bottom,
+.undershoot.left,
+.undershoot.right,
+.overshoot,
+.overshoot.top,
+.overshoot.bottom,
+.overshoot.left,
+.overshoot.right
 {
-  background: none;
+  background: transparent;
+  border:none;
 }
 
 
@@ -919,7 +945,7 @@ undershoot.right
 }
 
 
-/* Widget margins */
+/* GTK widget inner margins */
 
 #lib-plugin-ui combobox,
 #iop-plugin-ui combobox

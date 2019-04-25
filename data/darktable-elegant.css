@@ -67,6 +67,7 @@
 @define-color fg_color @grey_75;
 @define-color base_color @fg_color;
 @define-color text_color @grey_05;
+@define-color disabled_fg_color @grey_40;
 
 /* Scroll bars (sliders) */
 @define-color scroll_bar_inactive @grey_40;
@@ -78,6 +79,7 @@
 @define-color plugin_bg_color @grey_20;
 @define-color plugin_fg_color @grey_80;
 @define-color section_label @grey_55;
+@define-color plugin_label_color @grey_55;
 
 /* Modules controls */
 @define-color bauhaus_fg @grey_70;
@@ -223,7 +225,7 @@ box *
 
 *:disabled
 {
-  color: shade(@fg_color, .33);
+  color: @disabled_fg_color;
 }
 
 
@@ -352,7 +354,7 @@ button:disabled,
 #recent-collection-button:disabled,
 #history-button:disabled
 {
-  color: @bg_color;
+  color: @disabled_fg_color;
   background-color: transparent;
 }
 
@@ -448,6 +450,7 @@ entry
   background-color: @field_bg;
   min-height: 0;
   min-width: 0;
+  padding-left: 3pt;
 }
 
 entry:hover
@@ -488,6 +491,7 @@ entry selection
 #lib-panel-label
 {
   background-color: @bg_color;
+  color: @plugin_label_color;
   border:0;
   padding: 0 2pt 2pt 0.5em;
   font-weight: 400;
@@ -892,12 +896,19 @@ dialog scrolledwindow
 }
 
 /* empty space at top/bottom of sidepanels when scrolled */
-undershoot.top,
-undershoot.bottom,
-undershoot.left,
-undershoot.right
+.undershoot,
+.undershoot.top,
+.undershoot.bottom,
+.undershoot.left,
+.undershoot.right,
+.overshoot,
+.overshoot.top,
+.overshoot.bottom,
+.overshoot.left,
+.overshoot.right
 {
-  background: none;
+  background: transparent;
+  border:none;
 }
 
 
