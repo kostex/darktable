@@ -103,6 +103,8 @@ static gboolean _expose_again_full(gpointer user_data);
 
 static void _force_expose_all(dt_view_t *self);
 
+static gboolean _expose_recreate_slots(dt_view_t *self, const dt_lighttable_layout_t layout);
+
 typedef struct dt_preview_surface_t
 {
   int mip;
@@ -120,6 +122,12 @@ typedef struct dt_preview_surface_t
   float max_dx;
   float max_dy;
 } dt_preview_surface_t;
+
+typedef struct dt_layout_image_t
+{
+  gint imgid;
+  gint width, height, x, y;
+} dt_layout_image_t;
 
 /**
  * this organises the whole library:
@@ -172,8 +180,6 @@ typedef struct dt_library_t
 
   int32_t collection_count;
 
-  int last_first_selected; // offset of the last selected image inside the current selection
-
   // stuff for the audio player
   GPid audio_player_pid;   // the pid of the child process
   int32_t audio_player_id; // the imgid of the image the audio is played for
@@ -185,6 +191,10 @@ typedef struct dt_library_t
   float full_x;
   float full_y;
   dt_preview_surface_t fp_surf[FULL_PREVIEW_IN_MEMORY_LIMIT];
+  dt_layout_image_t *slots, *slots_old;
+  int slots_count, slots_count_old;
+  gboolean slots_changed;
+  int last_num_images, last_width, last_height;
 
   /* prepared and reusable statements */
   struct
@@ -202,12 +212,6 @@ typedef struct dt_library_t
   GtkWidget *profile_floating_window;
 
 } dt_library_t;
-
-typedef struct dt_layout_image_t
-{
-    gint imgid;
-    gint width, height, x, y;
-} dt_layout_image_t;
 
 static inline float absmul(float a, float b) {
   return a > b ? a/b : b/a;
@@ -256,27 +260,6 @@ static inline int get_display_num_images(void)
 
 static inline void filmstrip_set_active_image(dt_library_t *lib, const int imgid)
 {
-  int offset = -1;
-  GList *collected = dt_collection_get_all(darktable.collection, -1);
-  if(collected)
-  {
-    int id = -1;
-    int i = 0;
-    GList *l = collected;
-    while(l)
-    {
-      id = GPOINTER_TO_INT(l->data);
-      if(imgid == id) break;
-      i++;
-
-      l = g_list_next(l);
-    }
-    if(imgid == id && id >= 0) offset = i;
-
-    g_list_free(collected);
-  }
-
-  lib->last_first_selected = offset;
   dt_selection_select_single(darktable.selection, imgid);
   dt_view_filmstrip_set_active_image(darktable.view_manager, imgid);
   if(lib->full_preview_id > -1) lib->full_preview_id = imgid;
@@ -300,7 +283,18 @@ static void _force_expose_all(dt_view_t *self)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
   lib->force_expose_all = TRUE;
+  lib->slots_changed = TRUE;
   dt_control_queue_redraw_center();
+}
+
+static void _expose_destroy_slots(dt_view_t *self)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  if(!lib->slots) return;
+
+  free(lib->slots);
+  lib->slots = NULL;
+  lib->slots_count = 0;
 }
 
 static void check_layout(dt_view_t *self)
@@ -314,6 +308,9 @@ static void check_layout(dt_view_t *self)
 
   // layout has changed, let restore panels
   dt_ui_restore_panels(darktable.gui->ui);
+
+  // make sure we reset expose layout
+  _expose_destroy_slots(self);
 
   if(layout == DT_LIGHTTABLE_LAYOUT_FILEMANAGER)
   {
@@ -362,7 +359,7 @@ static inline void _destroy_preview_surface(dt_preview_surface_t *fp_surf)
   fp_surf->imgid = -1;
   fp_surf->w_lock = 0;
 
-  fp_surf->zoom_100 = 40.0f;
+  fp_surf->zoom_100 = 1001.0f; // dummy value to say it need recompute
   fp_surf->w_fit = 0.0f;
   fp_surf->h_fit = 0.0f;
 
@@ -480,51 +477,6 @@ static void _view_lighttable_collection_listener_internal(dt_view_t *self, dt_li
   _update_collected_images(self);
 }
 
-static void _view_lighttable_selection_listener_internal_culling(dt_view_t *self, dt_library_t *lib)
-{
-  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
-  {
-    // save the offset of the first selected image
-    GList *first_selected = dt_collection_get_selected(darktable.collection, 1);
-    // we have a selected image
-    if(first_selected)
-    {
-      const int imgid = GPOINTER_TO_INT(first_selected->data);
-      lib->last_first_selected = dt_collection_image_offset(imgid);
-      if(imgid >= 0 && dt_view_filmstrip_get_activated_imgid(darktable.view_manager) != imgid)
-        dt_view_filmstrip_set_active_image(darktable.view_manager, imgid);
-      g_list_free(first_selected);
-    }
-    // we have the previous selected image
-    else if(lib->last_first_selected >= 0)
-    {
-      GList *collected = dt_collection_get_all(darktable.collection, -1);
-      if(collected)
-      {
-        GList *l = NULL;
-        if(g_list_length(collected) > lib->last_first_selected)
-          l = g_list_nth(collected, lib->last_first_selected);
-        else
-          l = g_list_last(collected);
-        const int imgid = (l) ? GPOINTER_TO_INT(l->data) : -1;
-        if(imgid >= 0) filmstrip_set_active_image(lib, imgid);
-        g_list_free(collected);
-      }
-    }
-    // this is a new collection, select the first image
-    else
-    {
-      GList *collected = dt_collection_get_all(darktable.collection, 1);
-      if(collected)
-      {
-        const int imgid = GPOINTER_TO_INT(collected->data);
-        if(imgid >= 0) filmstrip_set_active_image(lib, imgid);
-        g_list_free(collected);
-      }
-    }
-  }
-}
-
 static void _view_lighttable_selection_listener_internal_preview(dt_view_t *self, dt_library_t *lib)
 {
   if(lib->full_preview_id != -1)
@@ -546,12 +498,14 @@ static void _view_lighttable_selection_listener_internal_preview(dt_view_t *self
 
 static void _view_lighttable_query_listener_callback(gpointer instance, gpointer user_data)
 {
-  // this will always happen in conjonction with the _view_lighttable_collection_listener_callback
+  // this will always happen in conjunction with the _view_lighttable_collection_listener_callback
   // so we only need to reset the offset
   dt_view_t *self = (dt_view_t *)user_data;
   dt_library_t *lib = (dt_library_t *)self->data;
 
-  // in filemanager, we want to reset the offset to the beggining
+  _update_collected_images(self);
+
+  // in filemanager, we want to reset the offset to the beginning
   const dt_lighttable_layout_t layout = get_layout();
   if(layout == lib->current_layout && layout == DT_LIGHTTABLE_LAYOUT_FILEMANAGER && lib->offset > 0
      && lib->first_visible_filemanager > 0)
@@ -562,14 +516,7 @@ static void _view_lighttable_query_listener_callback(gpointer instance, gpointer
   // also in culling
   if(layout == lib->current_layout && layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
-    lib->last_first_selected = -1;
-    GList *collected = dt_collection_get_all(darktable.collection, 1);
-    if(collected)
-    {
-      const int imgid = GPOINTER_TO_INT(collected->data);
-      if(imgid >= 0) filmstrip_set_active_image(lib, imgid);
-      g_list_free(collected);
-    }
+    _expose_recreate_slots(self, layout);
   }
 }
 
@@ -578,9 +525,14 @@ static void _view_lighttable_collection_listener_callback(gpointer instance, gpo
   dt_view_t *self = (dt_view_t *)user_data;
   dt_library_t *lib = (dt_library_t *)self->data;
 
+  _update_collected_images(self);
+
+  // we reset the expose//culling layout
+  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE || lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
+    _expose_recreate_slots(self, lib->current_layout);
+
   if(lib->current_layout != DT_LIGHTTABLE_LAYOUT_CULLING)
     _view_lighttable_collection_listener_internal(self, lib);
-  _view_lighttable_selection_listener_internal_culling(self, lib);
 }
 
 static void _view_lighttable_selection_listener_callback(gpointer instance, gpointer user_data)
@@ -591,6 +543,10 @@ static void _view_lighttable_selection_listener_callback(gpointer instance, gpoi
   // we need to redraw all thumbs to display the selected ones, record full redraw here
   lib->force_expose_all = TRUE;
 
+  // we reset the expose layout
+  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE || lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
+    _expose_recreate_slots(self, lib->current_layout);
+
   // we handle change of selection only in expose mode. it is needed
   // here as the selection from the filmstrip is actually what must be
   // displayed in the expose view.
@@ -598,7 +554,6 @@ static void _view_lighttable_selection_listener_callback(gpointer instance, gpoi
     _view_lighttable_collection_listener_internal(self, lib);
   else if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
-    _view_lighttable_selection_listener_internal_culling(self, lib);
     dt_control_queue_redraw_center();
   }
   else if(lib->full_preview_id != -1)
@@ -665,7 +620,7 @@ static void _update_collected_images(dt_view_t *self)
 
   if(lib->full_preview_id != -1)
   {
-    // note that this adjustement is needed as for a memory table the rowid doesn't start to 1 after the DELETE
+    // note that this adjustment is needed as for a memory table the rowid doesn't start to 1 after the DELETE
     // above, but rowid is incremented each time we INSERT.
     lib->full_preview_rowid += (min_after - min_before);
 
@@ -697,13 +652,16 @@ static void _update_collected_images(dt_view_t *self)
     sqlite3_finalize(stmt);
   }
 
-  /* if we have a statment lets clean it */
+  /* if we have a statement lets clean it */
   if(lib->statements.main_query) sqlite3_finalize(lib->statements.main_query);
 
   /* prepare a new main query statement for collection */
   DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db),
                               "SELECT imgid FROM memory.collected_images ORDER BY rowid LIMIT ?1, ?2", -1,
                               &lib->statements.main_query, NULL);
+
+  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE || lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
+    _expose_recreate_slots(self, lib->current_layout);
 
   dt_control_queue_redraw_center();
 }
@@ -857,8 +815,6 @@ void init(dt_view_t *self)
   lib->full_x = 0;
   lib->full_y = 0;
 
-  lib->last_first_selected = -1;
-
   for(int i = 0; i < FULL_PREVIEW_IN_MEMORY_LIMIT; i++)
   {
     lib->fp_surf[i].mip = 0;
@@ -907,6 +863,7 @@ void cleanup(dt_view_t *self)
   if(lib->audio_player_id != -1) _stop_audio(lib);
   g_hash_table_destroy(lib->thumbs_table);
   free(lib->full_res_thumb);
+  free(lib->slots);
   free(self->data);
 }
 
@@ -1448,7 +1405,7 @@ after_drawing:
     DT_DEBUG_SQLITE3_CLEAR_BINDINGS(lib->statements.main_query);
     DT_DEBUG_SQLITE3_RESET(lib->statements.main_query);
 
-    /* setup offest and row for prefetch */
+    /* setup offset and row for prefetch */
     DT_DEBUG_SQLITE3_BIND_INT(lib->statements.main_query, 1, offset + max_rows * iir);
     DT_DEBUG_SQLITE3_BIND_INT(lib->statements.main_query, 2, prefetchrows * iir);
 
@@ -1798,137 +1755,125 @@ failure:
   return missing;
 }
 
-static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t height, int32_t pointerx,
-                         int32_t pointery, const dt_lighttable_layout_t layout)
+static float _preview_get_zoom100(int32_t width, int32_t height, uint32_t imgid)
+{
+  int w, h;
+  w = h = 0;
+  dt_image_get_final_size(imgid, &w, &h);
+  // 0.97f value come from dt_view_image_expose
+  float zoom_100 = fmaxf((float)w / ((float)width * 0.97f), (float)h / ((float)height * 0.97f));
+  if(zoom_100 < 1.0f) zoom_100 = 1.0f;
+
+  return zoom_100;
+}
+
+static gboolean _expose_recreate_slots(dt_view_t *self, const dt_lighttable_layout_t layout)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
-  int32_t mouse_over_id;
-  int missing = 0;
 
-  lib->image_over = DT_VIEW_DESERT;
-  lib->pointed_img_over = DT_VIEW_ERR;
+  int img_count = 0;
+  gchar *query = NULL;
 
-  dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_LIGHTTABLE_BG);
-  cairo_paint(cr);
-
-  dt_view_set_scrollbar(self, 0, 0, 1, 1, 0, 0, 1, 1);
-
-  int sel_img_count = 0;
-  GList *selected = NULL;
-
+  // build the SQL query
   if(layout == DT_LIGHTTABLE_LAYOUT_EXPOSE)
   {
-    selected = dt_collection_get_selected(darktable.collection, -1);
-    sel_img_count = g_list_length(selected);
-  }
-  else if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
-  {
-    selected = dt_collection_get_all(darktable.collection, -1);
-    sel_img_count = g_list_length(selected);
-  }
-
-  if(sel_img_count == 0) return 0;
-
-  mouse_over_id = dt_control_get_mouse_over_id();
-
-  dt_layout_image_t *images = malloc(sel_img_count * sizeof(dt_layout_image_t));
-
-  gchar *imgids = NULL;
-
-  // build the image ids for the SQL 'in' where clause.
-  if(layout == DT_LIGHTTABLE_LAYOUT_EXPOSE)
-  {
-    GList *l = selected;
-    while(l)
-    {
-      const int imgid = GPOINTER_TO_INT(l->data);
-      if(imgids)
-        imgids = dt_util_dstrcat(imgids, ", %d", imgid);
-      else
-        imgids = dt_util_dstrcat(imgids, "%d", imgid);
-      l = g_list_next(l);
-    }
+    img_count = dt_collection_get_selected_count(darktable.collection);
+    if(img_count <= 0) return FALSE;
+    query = dt_util_dstrcat(
+        NULL, "SELECT s.imgid, b.aspect_ratio FROM main.selected_images AS s, images AS b, "
+              "memory.collected_images AS m WHERE s.imgid = b.id AND m.imgid = b.id ORDER BY m.rowid");
   }
   else if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
     // number of images to be displayed
-    const int display_num_images = get_display_num_images();
+    img_count = get_display_num_images();
     // starting with the first selected image
     GList *first_selected = dt_collection_get_selected(darktable.collection, 1);
     int display_first_image = (first_selected) ? GPOINTER_TO_INT(first_selected->data) : -1;
-    if(display_first_image < 0 && lib->last_first_selected >= 0)
+    if(first_selected) g_list_free(first_selected);
+    gchar *rowid_txt = NULL;
+    if(display_first_image < 0 && lib->slots_count > 0)
     {
-      GList *l = g_list_nth(selected, lib->last_first_selected);
-      if(l) display_first_image = GPOINTER_TO_INT(l->data);
+      // we search the first still valid id
+      gchar *imgs = dt_util_dstrcat(NULL, "%d", lib->slots[0].imgid);
+      for(int j = 1; j < lib->slots_count; j++)
+      {
+        imgs = dt_util_dstrcat(imgs, ", %d", lib->slots[j].imgid);
+      }
+      sqlite3_stmt *stmt2;
+      query = dt_util_dstrcat(NULL, "SELECT imgid FROM memory.collected_images WHERE imgid IN (%s) ORDER BY rowid",
+                              imgs);
+      g_free(imgs);
+      DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt2, NULL);
+      if(stmt2 != NULL)
+      {
+        while(sqlite3_step(stmt2) == SQLITE_ROW)
+        {
+          display_first_image = sqlite3_column_int(stmt2, 0);
+          break;
+        }
+        sqlite3_finalize(stmt2);
+      }
+      g_free(query);
     }
-
-    // skip images until we reach the first selected
-    // if no selection start with the first image
-    int i = 0;
-    GList *l = selected;
     if(display_first_image >= 0)
     {
-      while(l && i + display_num_images < sel_img_count)
-      {
-        const int imgid = GPOINTER_TO_INT(l->data);
-        if(imgid == display_first_image) break;
-
-        l = g_list_next(l);
-        i++;
-      }
+      rowid_txt = dt_util_dstrcat(NULL, "(SELECT rowid FROM memory.collected_images WHERE imgid = %d)",
+                                  display_first_image);
     }
+    else
+      rowid_txt = dt_util_dstrcat(NULL, "%d", 0);
 
-    // now make the sql sentece with the number of images to display
-    i = 0;
-    while(l && i < display_num_images)
-    {
-      const int imgid = GPOINTER_TO_INT(l->data);
-      if(imgids)
-        imgids = dt_util_dstrcat(imgids, ", %d", imgid);
-      else
-        imgids = dt_util_dstrcat(imgids, "%d", imgid);
-      l = g_list_next(l);
-      i++;
-    }
-    sel_img_count = i;
-
-    if(first_selected) g_list_free(first_selected);
+    query = dt_util_dstrcat(NULL,
+                            "SELECT m.imgid, b.aspect_ratio FROM memory.collected_images AS m, images AS b WHERE "
+                            "m.imgid = b.id AND m.rowid >= %s ORDER BY m.rowid LIMIT %d",
+                            rowid_txt, img_count);
+    g_free(rowid_txt);
   }
 
-  g_list_free(selected);
-
-  gchar *query =  g_strdup_printf("SELECT id, aspect_ratio, width, height FROM images WHERE id IN (%s) ORDER BY INSTR('%s', id)",
-                                  imgids, imgids);
-
-  g_free(imgids);
+  // be sure we don't have some remaining config
+  _expose_destroy_slots(self);
 
   /* prepare a new main query statement for collection */
   sqlite3_stmt *stmt;
   DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
   if(stmt == NULL)
   {
-    free(images);
     g_free(query);
-    return 0;
+    return FALSE;
   }
 
+  lib->slots = calloc(img_count, sizeof(dt_layout_image_t));
   int i = 0;
-  while(sqlite3_step(stmt) == SQLITE_ROW)
+  while(sqlite3_step(stmt) == SQLITE_ROW && i < img_count)
   {
     const int32_t id = sqlite3_column_int(stmt, 0);
     double aspect_ratio = sqlite3_column_double(stmt, 1);
-    if(!aspect_ratio)
+    if(!aspect_ratio || aspect_ratio < 0.0001)
     {
-      aspect_ratio = (double)sqlite3_column_int(stmt, 2) / (double)sqlite3_column_int(stmt, 3);
-      // record aspect ratio now
-      dt_image_set_aspect_ratio_to(id, aspect_ratio);
+      aspect_ratio = dt_image_set_aspect_ratio(id);
+      // if an error occurs, let's use 1:1 value
+      if(aspect_ratio < 0.0001) aspect_ratio = 1.0;
     }
 
-    images[i].imgid = id;
-    images[i].width = (gint) (sqrt(aspect_ratio) * 100);
-    images[i].height = (gint) (1/sqrt(aspect_ratio) * 100);
+    lib->slots[i].imgid = id;
+    lib->slots[i].width = (gint)(sqrt(aspect_ratio) * 100);
+    lib->slots[i].height = (gint)(1 / sqrt(aspect_ratio) * 100);
     i++;
   }
+  sqlite3_finalize(stmt);
+  g_free(query);
+  lib->slots_count = i;
+
+  lib->slots_changed = TRUE;
+  return TRUE;
+}
+
+static gboolean _expose_compute_slots(dt_view_t *self, int32_t width, int32_t height,
+                                      const dt_lighttable_layout_t layout)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  if(lib->slots_count <= 0 || !lib->slots) return FALSE;
 
   int sum_w = 0, max_h = 0, max_w = 0;
 
@@ -1939,19 +1884,20 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
   float avg_ratio = 0;
 
   // Get total window width and max window width/height
-  for(i = 0; i < sel_img_count; i++)
+  int i = 0;
+  for(i = 0; i < lib->slots_count; i++)
   {
-    sum_w += images[i].width;
-    max_w = MAX(max_w, images[i].width);
-    max_h = MAX(max_h, images[i].height);
-    avg_ratio += images[i].width / (float) images[i].height;
+    sum_w += lib->slots[i].width;
+    max_w = MAX(max_w, lib->slots[i].width);
+    max_h = MAX(max_h, lib->slots[i].height);
+    avg_ratio += lib->slots[i].width / (float)lib->slots[i].height;
   }
 
-  avg_ratio /= sel_img_count;
+  avg_ratio /= lib->slots_count;
 
   int per_row, tmp_per_row, per_col, tmp_per_col;
-  per_row = tmp_per_row = ceil(sqrt(sel_img_count));
-  per_col = tmp_per_col = (sel_img_count + per_row - 1) / per_row; // ceil(sel_img_count/per_row)
+  per_row = tmp_per_row = ceil(sqrt(lib->slots_count));
+  per_col = tmp_per_col = (lib->slots_count + per_row - 1) / per_row; // ceil(sel_img_count/per_row)
 
   float tmp_slot_ratio, slot_ratio;
   tmp_slot_ratio = slot_ratio = (width/ (float) per_row) / (height/ (float) per_col);
@@ -1973,15 +1919,16 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
 
     if(tmp_per_row == 0) break;
 
-    tmp_per_col = (sel_img_count + tmp_per_row - 1) / tmp_per_row; //ceil(sel_img_count / tmp_per_row);
+    tmp_per_col = (lib->slots_count + tmp_per_row - 1) / tmp_per_row; // ceil(sel_img_count / tmp_per_row);
 
     tmp_slot_ratio = (width/ (float) tmp_per_row) / (height/( float) tmp_per_col);
 
-  } while(per_row > 0 && per_row <= sel_img_count && absmul(tmp_slot_ratio, avg_ratio) < absmul(slot_ratio, avg_ratio));
+  } while(per_row > 0 && per_row <= lib->slots_count
+          && absmul(tmp_slot_ratio, avg_ratio) < absmul(slot_ratio, avg_ratio));
 
 
   // Vertical layout
-  for(i = 0; i < sel_img_count; i++)
+  for(i = 0; i < lib->slots_count; i++)
   {
     GList *slot_iter = g_list_first(slots);
     for (; slot_iter; slot_iter = slot_iter->next)
@@ -1998,14 +1945,14 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
       }
       // Add window to slot if the slot height after adding the window
       // doesn't exceed max window height
-      if (slot_h + distance + images[i].height < max_h) {
-        slot_iter->data = g_list_append(slot, &(images[i]));
+      if(slot_h + distance + lib->slots[i].height < max_h)
+      {
+        slot_iter->data = g_list_append(slot, &(lib->slots[i]));
         break;
       }
     }
     // Otherwise, create a new slot with only this window
-    if (!slot_iter)
-      slots = g_list_append(slots, g_list_append(NULL, &(images[i])));
+    if(!slot_iter) slots = g_list_append(slots, g_list_append(NULL, &(lib->slots[i])));
   }
 
   GList *rows = g_list_append(NULL, NULL);
@@ -2056,15 +2003,17 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
   total_width -= distance;
   total_height -= distance;
 
-  for (GList *iter = rows; iter != NULL; iter = iter->next)
+  for(GList *iter = g_list_first(rows); iter != NULL; iter = iter->next)
   {
     GList *row = (GList *) iter->data;
     int row_w = 0, xoff;
+    int max_rh = 0;
 
     for (GList *slot_cw_iter = row; slot_cw_iter != NULL; slot_cw_iter = slot_cw_iter->next)
     {
       dt_layout_image_t *cw = (dt_layout_image_t *) slot_cw_iter->data;
       row_w = MAX(row_w, cw->x + cw->width);
+      max_rh = MAX(max_rh, cw->height);
     }
 
     xoff = (total_width - row_w) / 2;
@@ -2073,6 +2022,7 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
     {
       dt_layout_image_t *cw = (dt_layout_image_t *) cw_iter->data;
       cw->x += xoff;
+      cw->height = max_rh;
     }
     g_list_free(row);
   }
@@ -2087,47 +2037,143 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
   int xoff = (width - (float) total_width * factor) / 2;
   int yoff = (height - (float) total_height * factor) / 2;
 
-  for(i = 0; i < sel_img_count; i++)
+  for(i = 0; i < lib->slots_count; i++)
   {
-    images[i].width = images[i].width * factor;
-    images[i].height = images[i].height * factor;
-    images[i].x = images[i].x * factor + xoff;
-    images[i].y = images[i].y * factor + yoff;
+    lib->slots[i].width = lib->slots[i].width * factor;
+    lib->slots[i].height = lib->slots[i].height * factor;
+    lib->slots[i].x = lib->slots[i].x * factor + xoff;
+    lib->slots[i].y = lib->slots[i].y * factor + yoff;
   }
 
   const int max_in_memory_images = _get_max_in_memory_images();
 
   // sort lib->fp_surf to re-use cached thumbs & surface
   if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
-    _sort_preview_surface(lib, images, sel_img_count, max_in_memory_images);
+    _sort_preview_surface(lib, lib->slots, lib->slots_count, max_in_memory_images);
 
-  for(i = 0; i < sel_img_count; i++)
+  lib->last_num_images = get_display_num_images();
+  lib->last_width = width;
+  lib->last_height = height;
+  return TRUE;
+}
+
+static void _culling_prefetch(dt_view_t *self)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  if(lib->slots_count == 0) return;
+
+  // we get the previous image id
+  int imgid_prev = -1;
+  gchar *query = dt_util_dstrcat(NULL,
+                                 "SELECT imgid FROM memory.collected_images WHERE rowid < (SELECT rowid FROM "
+                                 "memory.collected_images WHERE imgid = %d) ORDER BY rowid DESC LIMIT 1",
+                                 lib->slots[0].imgid);
+  sqlite3_stmt *stmt;
+  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
+  if(stmt != NULL)
+  {
+    if(sqlite3_step(stmt) == SQLITE_ROW)
+    {
+      imgid_prev = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+  }
+  g_free(query);
+
+  // we get the next image id
+  int imgid_next = -1;
+  query = dt_util_dstrcat(NULL,
+                          "SELECT imgid FROM memory.collected_images WHERE rowid > (SELECT rowid FROM "
+                          "memory.collected_images WHERE imgid = %d) ORDER BY rowid LIMIT 1",
+                          lib->slots[lib->slots_count - 1].imgid);
+  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
+  if(stmt != NULL)
+  {
+    if(sqlite3_step(stmt) == SQLITE_ROW)
+    {
+      imgid_next = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+  }
+  g_free(query);
+
+  // and we pretetch the mipmaps
+  const float imgwd = 0.97;
+  const float fz = (lib->full_zoom > 1.0f) ? lib->full_zoom : 1.0f;
+
+  if(imgid_next >= 0)
+  {
+    dt_mipmap_size_t mip = dt_mipmap_cache_get_matching_size(darktable.mipmap_cache,
+                                                             imgwd * lib->slots[lib->slots_count - 1].width * fz,
+                                                             imgwd * lib->slots[lib->slots_count - 1].height * fz);
+
+    if(mip < DT_MIPMAP_8)
+      dt_mipmap_cache_get(darktable.mipmap_cache, NULL, imgid_next, mip, DT_MIPMAP_PREFETCH, 'r');
+  }
+
+  if(imgid_prev >= 0)
+  {
+    dt_mipmap_size_t mip = dt_mipmap_cache_get_matching_size(
+        darktable.mipmap_cache, imgwd * lib->slots[0].width * fz, imgwd * lib->slots[0].height * fz);
+
+    if(mip < DT_MIPMAP_8)
+      dt_mipmap_cache_get(darktable.mipmap_cache, NULL, imgid_prev, mip, DT_MIPMAP_PREFETCH, 'r');
+  }
+}
+
+static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t height, int32_t pointerx,
+                         int32_t pointery, const dt_lighttable_layout_t layout)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+  int missing = 0;
+
+  lib->image_over = DT_VIEW_DESERT;
+  lib->pointed_img_over = DT_VIEW_ERR;
+
+  dt_gui_gtk_set_source_rgb(cr, DT_GUI_COLOR_LIGHTTABLE_BG);
+  cairo_paint(cr);
+
+  // we recompute images sizes and positions if needed
+  gboolean prefetch = FALSE;
+  if(lib->last_width != width || lib->last_height != height || !lib->slots
+     || lib->last_num_images != get_display_num_images())
+  {
+    if(!_expose_recreate_slots(self, layout)) return 0;
+    if(layout == DT_LIGHTTABLE_LAYOUT_CULLING) prefetch = TRUE;
+  }
+  if(lib->slots_changed)
+  {
+    if(!_expose_compute_slots(self, width, height, layout)) return 0;
+    lib->slots_changed = FALSE;
+  }
+
+  const int max_in_memory_images = _get_max_in_memory_images();
+  int32_t mouse_over_id = dt_control_get_mouse_over_id();
+
+  for(int i = 0; i < lib->slots_count; i++)
   {
     cairo_save(cr);
     // if(zoom == 1) dt_image_prefetch(image, DT_IMAGE_MIPF);
-    cairo_translate(cr, images[i].x, images[i].y);
-    int img_pointerx =
-      pointerx > images[i].x
-      && pointerx < images[i].x + images[i].width
-      ? pointerx - images[i].x
-      : images[i].width;
-    int img_pointery =
-      pointery > images[i].y
-      && pointery < images[i].y + images[i].height
-      ? pointery - images[i].y
-      : images[i].height;
+    cairo_translate(cr, lib->slots[i].x, lib->slots[i].y);
+    int img_pointerx = pointerx > lib->slots[i].x && pointerx < lib->slots[i].x + lib->slots[i].width
+                           ? pointerx - lib->slots[i].x
+                           : lib->slots[i].width;
+    int img_pointery = pointery > lib->slots[i].y && pointery < lib->slots[i].y + lib->slots[i].height
+                           ? pointery - lib->slots[i].y
+                           : lib->slots[i].height;
 
     dt_view_image_expose_t params = { 0 };
     params.image_over = &(lib->image_over);
-    params.imgid = images[i].imgid;
+    params.imgid = lib->slots[i].imgid;
     params.cr = cr;
-    params.width = images[i].width;
-    params.height = images[i].height;
+    params.width = lib->slots[i].width;
+    params.height = lib->slots[i].height;
     params.px = img_pointerx;
     params.py = img_pointery;
     params.zoom = 1;
     params.full_preview = TRUE;
-    if(sel_img_count <= max_in_memory_images)
+
+    if(lib->slots_count <= max_in_memory_images && lib->full_zoom > 1.0f)
     {
       params.full_zoom = lib->full_zoom;
       params.full_x = lib->full_x;
@@ -2139,7 +2185,10 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
       params.full_surface_wd = &lib->fp_surf[i].width;
       params.full_surface_ht = &lib->fp_surf[i].height;
       params.full_surface_w_lock = &lib->fp_surf[i].w_lock;
-      params.full_zoom100 = &lib->fp_surf[i].zoom_100;
+      if(lib->fp_surf[i].zoom_100 >= 1000.0f || lib->fp_surf[i].imgid != lib->slots[i].imgid)
+        lib->fp_surf[i].zoom_100
+            = _preview_get_zoom100(lib->slots[i].width, lib->slots[i].height, lib->slots[i].imgid);
+      params.full_zoom100 = lib->fp_surf[i].zoom_100;
       params.full_w1 = &lib->fp_surf[i].w_fit;
       params.full_h1 = &lib->fp_surf[i].h_fit;
       params.full_maxdx = &lib->fp_surf[i].max_dx;
@@ -2150,18 +2199,17 @@ static int expose_expose(dt_view_t *self, cairo_t *cr, int32_t width, int32_t he
     cairo_restore(cr);
 
     // set mouse over id
-    if(pointerx > images[i].x && pointerx < images[i].x + images[i].width && pointery > images[i].y && pointery < images[i].y + images[i].height)
+    if(pointerx > lib->slots[i].x && pointerx < lib->slots[i].x + lib->slots[i].width && pointery > lib->slots[i].y
+       && pointery < lib->slots[i].y + lib->slots[i].height)
     {
-      mouse_over_id = images[i].imgid;
+      mouse_over_id = lib->slots[i].imgid;
       dt_control_set_mouse_over_id(mouse_over_id);
     }
   }
 
-  free(images);
-
-  sqlite3_finalize(stmt);
-
-  g_free(query);
+  // if needed, we prefetch the next and previous images
+  // note that we only guess their sizes so they may be computed anyway
+  if(prefetch) _culling_prefetch(self);
 
   if(darktable.unmuted & DT_DEBUG_CACHE) dt_mipmap_cache_print(darktable.mipmap_cache);
   return missing;
@@ -2303,6 +2351,17 @@ static int expose_full_preview(dt_view_t *self, cairo_t *cr, int32_t width, int3
     }
   }
 
+  if(!lib->slots || lib->slots_count != 1 || lib->slots[0].imgid != lib->full_preview_id
+     || lib->slots[0].width != width || lib->slots[0].height != height)
+  {
+    _expose_destroy_slots(self);
+    lib->slots_count = 1;
+    lib->slots = calloc(lib->slots_count, sizeof(dt_layout_image_t));
+    lib->slots[0].imgid = lib->full_preview_id;
+    lib->slots[0].width = width;
+    lib->slots[0].height = height;
+  }
+
   dt_view_image_expose_t params = { 0 };
   params.image_over = &(lib->image_over);
   params.imgid = lib->full_preview_id;
@@ -2314,21 +2373,25 @@ static int expose_full_preview(dt_view_t *self, cairo_t *cr, int32_t width, int3
   params.zoom = 1;
   params.full_preview = TRUE;
   params.full_zoom = lib->full_zoom;
-  params.full_zoom100 = &lib->fp_surf[0].zoom_100;
-  params.full_maxdx = &lib->fp_surf[0].max_dx;
-  params.full_maxdy = &lib->fp_surf[0].max_dy;
-  params.full_w1 = &lib->fp_surf[0].w_fit;
-  params.full_h1 = &lib->fp_surf[0].h_fit;
-  params.full_x = lib->full_x;
-  params.full_y = lib->full_y;
-  params.full_surface = &lib->fp_surf[0].surface;
-  params.full_rgbbuf = &lib->fp_surf[0].rgbbuf;
-  params.full_surface_mip = &lib->fp_surf[0].mip;
-  params.full_surface_id = &lib->fp_surf[0].imgid;
-  params.full_surface_wd = &lib->fp_surf[0].width;
-  params.full_surface_ht = &lib->fp_surf[0].height;
-  params.full_surface_w_lock = &lib->fp_surf[0].w_lock;
-
+  if(lib->full_zoom > 1.0f)
+  {
+    if(lib->fp_surf[0].zoom_100 >= 1000.0f || lib->fp_surf[0].imgid != lib->full_preview_id)
+      lib->fp_surf[0].zoom_100 = _preview_get_zoom100(width, height, lib->full_preview_id);
+    params.full_zoom100 = lib->fp_surf[0].zoom_100;
+    params.full_maxdx = &lib->fp_surf[0].max_dx;
+    params.full_maxdy = &lib->fp_surf[0].max_dy;
+    params.full_w1 = &lib->fp_surf[0].w_fit;
+    params.full_h1 = &lib->fp_surf[0].h_fit;
+    params.full_x = lib->full_x;
+    params.full_y = lib->full_y;
+    params.full_surface = &lib->fp_surf[0].surface;
+    params.full_rgbbuf = &lib->fp_surf[0].rgbbuf;
+    params.full_surface_mip = &lib->fp_surf[0].mip;
+    params.full_surface_id = &lib->fp_surf[0].imgid;
+    params.full_surface_wd = &lib->fp_surf[0].width;
+    params.full_surface_ht = &lib->fp_surf[0].height;
+    params.full_surface_w_lock = &lib->fp_surf[0].w_lock;
+  }
   const int missing = dt_view_image_expose(&params);
 
   if(lib->display_focus && (lib->full_res_thumb_id == lib->full_preview_id))
@@ -2457,6 +2520,8 @@ static gboolean go_up_key_accel_callback(GtkAccelGroup *accel_group, GObject *ac
     move_view(lib, DIRECTION_TOP);
   else if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
+    // reset culling layout
+    _expose_destroy_slots(self);
     // go to the first image on the collection
     GList *collected = dt_collection_get_all(darktable.collection, 1);
     const int imgid = (collected) ? GPOINTER_TO_INT(collected->data) : -1;
@@ -2480,12 +2545,28 @@ static gboolean go_down_key_accel_callback(GtkAccelGroup *accel_group, GObject *
     move_view(lib, DIRECTION_BOTTOM);
   else if(layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
-    // go to the last image on the collection
-    GList *collected = dt_collection_get_all(darktable.collection, -1);
-    GList *l = g_list_last(collected);
-    const int imgid = (l) ? GPOINTER_TO_INT(l->data) : -1;
+    // reset culling layout
+    _expose_destroy_slots(self);
+    // go to the last image on the collection minus the number of image to display
+    int imgid = -1;
+    gchar *query = dt_util_dstrcat(NULL,
+                                   "SELECT imgid FROM (SELECT rowid, imgid FROM memory.collected_images ORDER BY "
+                                   "rowid DESC LIMIT %d) ORDER BY rowid ASC LIMIT 1",
+                                   get_display_num_images());
+    sqlite3_stmt *stmt;
+    DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
+    if(stmt != NULL)
+    {
+      if(sqlite3_step(stmt) == SQLITE_ROW)
+      {
+        imgid = sqlite3_column_int(stmt, 0);
+      }
+      sqlite3_finalize(stmt);
+    }
+    g_free(query);
+
+    // select this image
     if(imgid >= 0) filmstrip_set_active_image(lib, imgid);
-    if(collected) g_list_free(collected);
   }
   else
     lib->offset = 0x1fffffff;
@@ -2704,46 +2785,55 @@ static void drag_and_drop_received(GtkWidget *widget, GdkDragContext *context, g
 // shitf the first select image by 1 with up direction
 static void shift_first_selected_image(dt_library_t *lib, const int up)
 {
-  // we're going to shift the selection by 1 if there's still room
-  GList *collected = dt_collection_get_all(darktable.collection, -1);
-  GList *first_selected = dt_collection_get_selected(darktable.collection, 1);
-  int display_first_image = (first_selected) ? GPOINTER_TO_INT(first_selected->data) : -1;
-  if(display_first_image < 0 && lib->last_first_selected >= 0)
-  {
-    GList *l = g_list_nth(collected, lib->last_first_selected);
-    if(l) display_first_image = GPOINTER_TO_INT(l->data);
-  }
+  if(lib->slots_count <= 0) return;
 
-  // get the first selected image in the collected list
-  GList *l = collected;
-  if(display_first_image >= 0)
+  // we want the new id of the first selected image
+  int newid = -1;
+  if(up)
   {
-    while(l)
+    gchar *query = dt_util_dstrcat(NULL,
+                                   "SELECT imgid FROM memory.collected_images WHERE rowid < (SELECT rowid FROM "
+                                   "memory.collected_images WHERE imgid = %d) ORDER BY rowid DESC LIMIT 1",
+                                   lib->slots[0].imgid);
+    sqlite3_stmt *stmt;
+    DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
+    if(stmt != NULL)
     {
-      const int imgid = GPOINTER_TO_INT(l->data);
-      if(imgid == display_first_image) break;
-
-      l = g_list_next(l);
+      if(sqlite3_step(stmt) == SQLITE_ROW)
+      {
+        newid = sqlite3_column_int(stmt, 0);
+      }
+      sqlite3_finalize(stmt);
+    }
+    g_free(query);
+  }
+  else
+  {
+    if(lib->slots_count > 1)
+      newid = lib->slots[1].imgid;
+    else
+    {
+      gchar *query = dt_util_dstrcat(NULL,
+                                     "SELECT imgid FROM memory.collected_images WHERE rowid > (SELECT rowid FROM "
+                                     "memory.collected_images WHERE imgid = %d) ORDER BY rowid LIMIT 1",
+                                     lib->slots[0].imgid);
+      sqlite3_stmt *stmt;
+      DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), query, -1, &stmt, NULL);
+      if(stmt != NULL)
+      {
+        if(sqlite3_step(stmt) == SQLITE_ROW)
+        {
+          newid = sqlite3_column_int(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+      }
+      g_free(query);
     }
   }
-
-  // move the collected list according the the mouse wheel
-  GList *l_tmp = NULL;
-  if(up)
-    l_tmp = g_list_previous(l);
-  else
-    l_tmp = g_list_next(l);
-  if(l_tmp) l = l_tmp;
+  if(newid < 0) return;
 
   // make the image active
-  if(l)
-  {
-    const int imgid = GPOINTER_TO_INT(l->data);
-    filmstrip_set_active_image(lib, imgid);
-  }
-
-  if(collected) g_list_free(collected);
-  if(first_selected) g_list_free(first_selected);
+  filmstrip_set_active_image(lib, newid);
 }
 
 void enter(dt_view_t *self)
@@ -2825,6 +2915,15 @@ static void _ensure_image_visibility(dt_library_t *lib, uint32_t rowid)
 static void _preview_enter(dt_view_t *self, gboolean sticky, gboolean focus, int32_t mouse_over_id)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
+
+  if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE || lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
+  {
+    // save current slots
+    lib->slots_old = lib->slots;
+    lib->slots_count_old = lib->slots_count;
+    lib->slots = NULL;
+    lib->slots_count = 0;
+  }
 
   lib->full_preview_sticky = sticky;
   lib->full_preview_id = mouse_over_id;
@@ -2910,6 +3009,13 @@ static void _preview_quit(dt_view_t *self)
 
   if(lib->current_layout == DT_LIGHTTABLE_LAYOUT_EXPOSE || lib->current_layout == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
+    // retrieve saved slots
+    _expose_destroy_slots(self);
+    lib->slots = lib->slots_old;
+    lib->slots_count = lib->slots_count_old;
+    lib->slots_old = NULL;
+    lib->slots_count_old = 0;
+
     gtk_widget_hide(GTK_WIDGET(timeline->widget));
     gtk_widget_show(GTK_WIDGET(m->widget));
   }
@@ -2927,6 +3033,7 @@ static void _preview_quit(dt_view_t *self)
   // restore drag and drop
   _register_custom_image_order_drag_n_drop(self);
 
+  lib->slots_changed = TRUE;
   lib->force_expose_all = TRUE;
 }
 
@@ -2957,6 +3064,9 @@ void leave(dt_view_t *self)
 
   // cleanup full preview image if any
   _full_preview_destroy(self);
+
+  // cleanup expose layout if any
+  _expose_destroy_slots(self);
 
   dt_ui_scrollbars_show(darktable.gui->ui, FALSE);
 }
@@ -3029,6 +3139,59 @@ void scrollbar_changed(dt_view_t *self, double x, double y)
   }
 }
 
+static gboolean _lighttable_preview_zoom_add(dt_view_t *self, float val, double posx, double posy)
+{
+  dt_library_t *lib = (dt_library_t *)self->data;
+
+  if(lib->full_preview_id > -1 || get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE
+     || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
+  {
+    int sel_img_count = lib->slots_count;
+    const int max_in_memory_images = _get_max_in_memory_images();
+    if((get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
+       && sel_img_count > max_in_memory_images)
+    {
+      dt_control_log(_("zooming is limited to %d images"), max_in_memory_images);
+    }
+    else
+    {
+      // we get the 100% zoom of the largest image
+      float nz = 1.0f;
+      for(int i = 0; i < sel_img_count; i++)
+      {
+        if(lib->fp_surf[i].zoom_100 >= 1000.0f || lib->fp_surf[i].imgid != lib->slots[i].imgid)
+          lib->fp_surf[i].zoom_100
+              = _preview_get_zoom100(lib->slots[i].width, lib->slots[i].height, lib->slots[i].imgid);
+        if(lib->fp_surf[i].zoom_100 > nz) nz = lib->fp_surf[i].zoom_100;
+      }
+
+      nz = fminf(nz, lib->full_zoom + val);
+      nz = fmaxf(nz, 1.0f);
+
+      if(lib->full_zoom != nz)
+      {
+        if(get_layout() != DT_LIGHTTABLE_LAYOUT_EXPOSE && get_layout() != DT_LIGHTTABLE_LAYOUT_CULLING
+           && posx >= 0.0f && posy >= 0.0f)
+        {
+          // we want to zoom "around" the pointer
+          float dx = nz / lib->full_zoom
+                         * (posx - (self->width - lib->fp_surf[0].w_fit * lib->full_zoom) * 0.5f - lib->full_x)
+                     - posx + (self->width - lib->fp_surf[0].w_fit * nz) * 0.5f;
+          float dy = nz / lib->full_zoom
+                         * (posy - (self->height - lib->fp_surf[0].h_fit * lib->full_zoom) * 0.5f - lib->full_y)
+                     - posy + (self->height - lib->fp_surf[0].h_fit * nz) * 0.5f;
+          lib->full_x = -dx;
+          lib->full_y = -dy;
+        }
+        lib->full_zoom = nz;
+        dt_control_queue_redraw_center();
+      }
+    }
+    return TRUE;
+  }
+  return FALSE;
+}
+
 void scrolled(dt_view_t *self, double x, double y, int up, int state)
 {
   dt_library_t *lib = (dt_library_t *)self->data;
@@ -3039,61 +3202,10 @@ void scrolled(dt_view_t *self, double x, double y, int up, int state)
       || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
      && (state & GDK_CONTROL_MASK) == GDK_CONTROL_MASK)
   {
-    int sel_img_count = 1;
-    if(get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE)
-    {
-      GList *selected = dt_collection_get_selected(darktable.collection, -1);
-      sel_img_count = g_list_length(selected);
-      if(selected) g_list_free(selected);
-    }
-    else if(get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
-    {
-      sel_img_count = get_display_num_images();
-    }
-    const int max_in_memory_images = _get_max_in_memory_images();
-    if((get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
-       && sel_img_count > max_in_memory_images)
-    {
-      dt_control_log(_("zooming is limited to %d images"), max_in_memory_images);
-    }
+    if(up)
+      _lighttable_preview_zoom_add(self, 0.5f, x, y);
     else
-    {
-      float nz = 40.0f;
-      if(get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
-      {
-        // we get the 100% zoom of the largest image
-        nz = 1.0f;
-        for(int i = 0; i < sel_img_count; i++)
-        {
-          if(lib->fp_surf[i].zoom_100 > nz) nz = lib->fp_surf[i].zoom_100;
-        }
-      }
-      else
-        nz = lib->fp_surf[0].zoom_100;
-
-      if(up)
-        nz = fminf(nz, lib->full_zoom + 0.5f);
-      else
-        nz = fmaxf(1.0f, lib->full_zoom - 0.5f);
-
-      if(lib->full_zoom != nz)
-      {
-        if(get_layout() != DT_LIGHTTABLE_LAYOUT_EXPOSE && get_layout() != DT_LIGHTTABLE_LAYOUT_CULLING)
-        {
-          // we want to zoom "around" the pointer
-          float dx = nz / lib->full_zoom
-                         * (x - (self->width - lib->fp_surf[0].w_fit * lib->full_zoom) * 0.5f - lib->full_x)
-                     - x + (self->width - lib->fp_surf[0].w_fit * nz) * 0.5f;
-          float dy = nz / lib->full_zoom
-                         * (y - (self->height - lib->fp_surf[0].h_fit * lib->full_zoom) * 0.5f - lib->full_y)
-                     - y + (self->height - lib->fp_surf[0].h_fit * nz) * 0.5f;
-          lib->full_x = -dx;
-          lib->full_y = -dy;
-        }
-        lib->full_zoom = nz;
-        dt_control_queue_redraw_center();
-      }
-    }
+      _lighttable_preview_zoom_add(self, -0.5f, x, y);
   }
   else if(lib->full_preview_id > -1)
   {
@@ -3335,7 +3447,7 @@ int button_pressed(dt_view_t *self, double x, double y, double pressure, int whi
       case DT_VIEW_STAR_3:
       case DT_VIEW_STAR_4:
       case DT_VIEW_STAR_5:
-        // In file manager we act immediatley, in zoomable lt we defer action
+        // In file manager we act immediately, in zoomable lt we defer action
         // until either the button is released or the pointer leaves the
         // activated control. In the second case, we cancel the action, and
         // instead we begin to pan. We do this for those users intending to
@@ -3786,25 +3898,17 @@ static gboolean _lighttable_redo_callback(GtkAccelGroup *accel_group, GObject *a
 static gboolean _lighttable_preview_zoom_100(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
                                              GdkModifierType modifier, gpointer data)
 {
-  dt_view_t *self = darktable.view_manager->proxy.lighttable.view;
-  dt_library_t *lib = (dt_library_t *)self->data;
-
-  if(lib->full_preview_id > -1)
-  {
-    lib->full_zoom = 100.0f; // this is ugly, but I don't find a way to know image output size at this stage
-    dt_control_queue_redraw_center();
-    return TRUE;
-  }
-
-  return FALSE;
+  return _lighttable_preview_zoom_add(darktable.view_manager->proxy.lighttable.view, 100.0f, -1, -1);
 }
+
 static gboolean _lighttable_preview_zoom_fit(GtkAccelGroup *accel_group, GObject *acceleratable, guint keyval,
                                              GdkModifierType modifier, gpointer data)
 {
   dt_view_t *self = darktable.view_manager->proxy.lighttable.view;
   dt_library_t *lib = (dt_library_t *)self->data;
 
-  if(lib->full_preview_id > -1)
+  if(lib->full_preview_id > -1 || get_layout() == DT_LIGHTTABLE_LAYOUT_EXPOSE
+     || get_layout() == DT_LIGHTTABLE_LAYOUT_CULLING)
   {
     lib->full_zoom = 1.0f;
     lib->full_x = 0;
@@ -4185,32 +4289,6 @@ void gui_init(dt_view_t *self)
 
   g_signal_connect(G_OBJECT(display2_intent), "value-changed", G_CALLBACK(display2_intent_callback), NULL);
   g_signal_connect(G_OBJECT(display2_profile), "value-changed", G_CALLBACK(display2_profile_callback), NULL);
-
-  GList *first_selected = dt_collection_get_selected(darktable.collection, 1);
-  GList *collected = dt_collection_get_all(darktable.collection, -1);
-  if(first_selected && collected)
-  {
-    int offset = -1;
-    int i = 0;
-    const int imgid = GPOINTER_TO_INT(first_selected->data);
-    GList *l = collected;
-    while(l)
-    {
-      const int id = GPOINTER_TO_INT(l->data);
-      if(imgid == id)
-      {
-        offset = i;
-        break;
-      }
-      i++;
-
-      l = g_list_next(l);
-    }
-
-    lib->last_first_selected = offset;
-  }
-  if(first_selected) g_list_free(first_selected);
-  if(collected) g_list_free(collected);
 
   // update the gui when profiles change
   dt_control_signal_connect(darktable.signals, DT_SIGNAL_CONTROL_PROFILE_USER_CHANGED,

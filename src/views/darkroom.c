@@ -101,10 +101,6 @@ static void dt_dev_change_image(dt_develop_t *dev, const uint32_t imgid);
 static void _darkroom_display_second_window(dt_develop_t *dev);
 static void _darkroom_ui_second_window_write_config(GtkWidget *widget);
 
-#define DT_DARKROOM_PROCESS_MAIN_TIMEOUT     500   // the main working window
-#define DT_DARKROOM_PROCESS_PREVIEW_TIMEOUT  400   // the small navigation window, no need for quick refresh
-#define DT_DARKROOM_PROCESS_PREVIEW2_TIMEOUT 600   // the second window preview
-
 const char *name(dt_view_t *self)
 {
   return _("darkroom");
@@ -224,19 +220,19 @@ void expose(
   if(dev->image_status == DT_DEV_PIXELPIPE_DIRTY || dev->image_status == DT_DEV_PIXELPIPE_INVALID
      || dev->pipe->input_timestamp < dev->preview_pipe->input_timestamp)
   {
-    dev->image_timeout_handle = g_timeout_add(DT_DARKROOM_PROCESS_MAIN_TIMEOUT, G_SOURCE_FUNC(dt_dev_process_image), dev);
+    dt_dev_process_image(dev);
   }
 
   if(dev->preview_status == DT_DEV_PIXELPIPE_DIRTY || dev->preview_status == DT_DEV_PIXELPIPE_INVALID
      || dev->pipe->input_timestamp > dev->preview_pipe->input_timestamp)
   {
-    dev->image_timeout_handle = g_timeout_add(DT_DARKROOM_PROCESS_PREVIEW_TIMEOUT, G_SOURCE_FUNC(dt_dev_process_preview), dev);
+    dt_dev_process_preview(dev);
   }
 
   if(dev->preview2_status == DT_DEV_PIXELPIPE_DIRTY || dev->preview2_status == DT_DEV_PIXELPIPE_INVALID
      || dev->pipe->input_timestamp > dev->preview2_pipe->input_timestamp)
   {
-    dev->image_timeout_handle = g_timeout_add(DT_DARKROOM_PROCESS_PREVIEW2_TIMEOUT, G_SOURCE_FUNC(dt_dev_process_preview2), dev);
+    dt_dev_process_preview2(dev);
   }
 
   dt_pthread_mutex_t *mutex = NULL;
@@ -628,6 +624,7 @@ static void dt_dev_change_image(dt_develop_t *dev, const uint32_t imgid)
   // if()
   {
     dt_mipmap_cache_remove(darktable.mipmap_cache, dev->image_storage.id);
+    dt_image_reset_final_size(dev->image_storage.id);
     dt_image_synch_xmp(dev->image_storage.id);
   }
 
@@ -2360,8 +2357,6 @@ void enter(dt_view_t *self)
   dev->form_gui->formid = 0;
   dev->gui_leaving = 0;
   dev->gui_module = NULL;
-  dev->image_timeout_handle = 0;
-  dev->preview_timeout_handle = 0;
 
   select_this_image(dev->image_storage.id);
 
@@ -2509,6 +2504,7 @@ void leave(dt_view_t *self)
   // if()
   {
     dt_mipmap_cache_remove(darktable.mipmap_cache, dev->image_storage.id);
+    dt_image_reset_final_size(dev->image_storage.id);
     // dump new xmp data
     dt_image_synch_xmp(dev->image_storage.id);
   }

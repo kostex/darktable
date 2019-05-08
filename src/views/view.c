@@ -238,7 +238,7 @@ void dt_vm_remove_child(GtkWidget *widget, gpointer data)
 }
 
 /*
-   When expanders get destoyed, they destroy the child
+   When expanders get destroyed, they destroy the child
    so remove the child before that
    */
 static void _remove_child(GtkWidget *child,GtkContainer *container)
@@ -983,30 +983,31 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
   const int imgsel = dt_control_get_mouse_over_id(); //  darktable.control->global_settings.lib_image_mouse_over_id;
 
   dt_view_image_over_t *image_over = vals->image_over;
-  uint32_t imgid = vals->imgid;
+  const uint32_t imgid = vals->imgid;
   cairo_t *cr = vals->cr;
-  int32_t width = vals->width;
-  int32_t height = vals->height;
-  int32_t zoom = vals->zoom;
-  int32_t px = vals->px;
-  int32_t py = vals->py;
-  gboolean full_preview = vals->full_preview;
-  gboolean image_only = vals->image_only;
-  float full_zoom = vals->full_zoom;
-  float full_x = vals->full_x;
-  float full_y = vals->full_y;
+  const int32_t width = vals->width;
+  const int32_t height = vals->height;
+  const int32_t zoom = vals->zoom;
+  const int32_t px = vals->px;
+  const int32_t py = vals->py;
+  const gboolean full_preview = vals->full_preview;
+  const gboolean image_only = vals->image_only;
+  const gboolean no_deco = image_only ? TRUE : vals->no_deco;
+  const float full_zoom = vals->full_zoom;
+  const float full_x = vals->full_x;
+  const float full_y = vals->full_y;
 
   // active if zoom>1 or in the proper area
   const gboolean in_metadata_zone = (px < width && py < height / 2) || (zoom > 1);
 
   const gboolean draw_thumb = TRUE;
-  const gboolean draw_colorlabels = !image_only && (darktable.gui->show_overlays || in_metadata_zone);
-  const gboolean draw_local_copy = !image_only && (darktable.gui->show_overlays || in_metadata_zone);
-  const gboolean draw_grouping = !image_only;
-  const gboolean draw_selected = !image_only;
-  const gboolean draw_history = !image_only;
-  const gboolean draw_metadata = !image_only && (darktable.gui->show_overlays || in_metadata_zone);
-  const gboolean draw_audio = !image_only;
+  const gboolean draw_colorlabels = !no_deco && (darktable.gui->show_overlays || in_metadata_zone);
+  const gboolean draw_local_copy = !no_deco && (darktable.gui->show_overlays || in_metadata_zone);
+  const gboolean draw_grouping = !no_deco;
+  const gboolean draw_selected = !no_deco;
+  const gboolean draw_history = !no_deco;
+  const gboolean draw_metadata = !no_deco && (darktable.gui->show_overlays || in_metadata_zone);
+  const gboolean draw_audio = !no_deco;
 
   cairo_save(cr);
   dt_gui_color_t bgcol = DT_GUI_COLOR_THUMBNAIL_BG;
@@ -1072,11 +1073,9 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
   }
 
   dt_mipmap_cache_t *cache = darktable.mipmap_cache;
-  if(vals->full_surface_id && vals->full_zoom100 && *(vals->full_surface_id) != imgid)
-    *(vals->full_zoom100) = 40.0f;
   float fz = 1.0f;
   if(full_zoom > 0.0f) fz = full_zoom;
-  if(vals->full_zoom100 && *(vals->full_zoom100) > 0.0f) fz = fminf(*(vals->full_zoom100), fz);
+  if(vals->full_zoom100 > 0.0f) fz = fminf(vals->full_zoom100, fz);
   dt_mipmap_size_t mip = dt_mipmap_cache_get_matching_size(cache, imgwd * width * fz, imgwd * height * fz);
 
   // if needed, we load the mimap buffer
@@ -1114,21 +1113,6 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
   {
     buf_wd = *(vals->full_surface_wd);
     buf_ht = *(vals->full_surface_ht);
-  }
-  // we want to sanitize full_zoom value to be sure not to exceed 100%
-  if(fz > 1.0f && buf_sizeok)
-  {
-    // is the mipmap loaded the full one ?
-    if(cache->max_width[mip] > buf_wd + 4 && cache->max_height[mip] > buf_ht + 4)
-    {
-      float zoom_100 = fmaxf((float)buf_wd / ((float)width * imgwd), (float)buf_ht / ((float)height * imgwd));
-      if(zoom_100 < 1.0f) zoom_100 = 1.0f;
-      if(vals->full_zoom100) *(vals->full_zoom100) = zoom_100;
-      if(fz > zoom_100)
-      {
-        fz = zoom_100;
-      }
-    }
   }
 
   if(draw_thumb_background)
@@ -1382,7 +1366,7 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
 
     if(!vals->full_rgbbuf || !*(vals->full_rgbbuf)) free(rgbbuf);
 
-    if (image_only)
+    if(no_deco)
     {
       cairo_restore(cr);
       cairo_save(cr);
@@ -1432,7 +1416,7 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
   cairo_restore(cr);
 
   if(buf_mipmap) dt_mipmap_cache_release(darktable.mipmap_cache, &buf);
-  if(buf_mipmap && !missing && vals->full_surface && !*(vals->full_surface_w_lock))
+  if(buf_mipmap && !missing && vals->full_surface && !*(vals->full_surface_w_lock) && mip >= DT_MIPMAP_7)
   {
     // we don't need this in the cache anymore, as we already have it in memory for zoom&pan
     // let's drop it to free space. This reduce the risk of getting out of space...

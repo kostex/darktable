@@ -4,8 +4,8 @@ if(USE_OPENCL)
 	add_subdirectory(kernels)
 endif(USE_OPENCL)
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/darktable.css DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable/themes COMPONENT DTApplication)
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/darktable-elegant.css DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable/themes COMPONENT DTApplication)
+FILE(GLOB THEME_FILES "themes/*.css")
+install(FILES ${THEME_FILES} DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable/themes COMPONENT DTApplication)
 
 #
 # web gallery export support files:
@@ -28,6 +28,7 @@ if(USE_LUA)
 install(DIRECTORY "lua" DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable COMPONENT DTApplication)
 install(FILES luarc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable COMPONENT DTApplication)
 endif(USE_LUA)
+
 #
 # Install (and generate when necessary) other system shares
 #
@@ -176,3 +177,8 @@ endif(USE_XMLLINT)
 # postinst script should copy this into users homedirectory
 # $HOME/.config/darktable/darktable.rc
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/darktablerc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable COMPONENT DTApplication)
+
+#
+# Install bash completion file. users/packagers can symlink that to /etc/bash_completion.d/
+#
+install(FILES darktable.bash DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/darktable COMPONENT DTApplication)

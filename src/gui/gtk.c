@@ -972,6 +972,12 @@ static gboolean center_enter(GtkWidget *widget, GdkEventCrossing *event, gpointe
   return TRUE;
 }
 
+static gboolean _windows_state_changed(GtkWidget *window, GdkEventWindowState *event, GtkWidget *widget)
+{
+  dt_view_lighttable_force_expose_all(darktable.view_manager);
+  return TRUE;
+}
+
 static const char* get_source_name(int pos)
 {
   static const gchar *SOURCE_NAMES[]
@@ -1072,14 +1078,15 @@ int dt_gui_gtk_init(dt_gui_gtk_t *gui)
   if (GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())) gui->scroll_mask |= GDK_SMOOTH_SCROLL_MASK;
 #endif
 
+  // key accelerator that enables scrolling of side panels
+  gui->sidebar_scroll_mask = GDK_MOD1_MASK | GDK_CONTROL_MASK;
+
   // Initializing widgets
   init_widgets(gui);
 
   // Adding the global shortcut group to the main window
   gtk_window_add_accel_group(GTK_WINDOW(dt_ui_main_window(darktable.gui->ui)),
                              darktable.control->accelerators);
-
-  //  dt_gui_background_jobs_init();
 
   /* Have the delete event (window close) end the program */
   snprintf(path, sizeof(path), "%s/icons", datadir);
@@ -1136,6 +1143,9 @@ int dt_gui_gtk_init(dt_gui_gtk_t *gui)
 
   widget = dt_ui_center(darktable.gui->ui);
   gtk_widget_set_app_paintable(widget, TRUE);
+
+  g_signal_connect(GTK_WINDOW(dt_ui_main_window(darktable.gui->ui)), "window-state-event",
+                   G_CALLBACK(_windows_state_changed), widget);
 
   // TODO: make this work as: libgnomeui testgnome.c
   /*  GtkContainer *box = GTK_CONTAINER(darktable.gui->widgets.plugins_vbox);
@@ -1768,6 +1778,8 @@ void dt_ui_panel_show(dt_ui_t *ui, const dt_ui_panel_t p, gboolean show, gboolea
     gtk_widget_show(ui->panels[p]);
   else
     gtk_widget_hide(ui->panels[p]);
+
+  dt_view_lighttable_force_expose_all(darktable.view_manager);
 }
 
 gboolean dt_ui_panel_visible(dt_ui_t *ui, const dt_ui_panel_t p)
@@ -1796,8 +1808,8 @@ static GtkWidget *_ui_init_panel_container_top(GtkWidget *container)
 
 static gboolean _ui_init_panel_container_center_scroll_event(GtkWidget *widget, GdkEventScroll *event)
 {
-  // just make sure nothing happens:
-  return TRUE;
+  // just make sure nothing happens unless ctrl-alt are pressed:
+  return (((event->state & gtk_accelerator_get_default_mod_mask()) != darktable.gui->sidebar_scroll_mask) != dt_conf_get_bool("darkroom/ui/sidebar_scroll_default"));
 }
 
 // this should work as long as everything happens in the gui thread
@@ -2010,7 +2022,7 @@ static void _ui_init_panel_center_bottom(dt_ui_t *ui, GtkWidget *container)
 /* this is called as a signal handler, the signal raising logic asserts the gdk lock. */
 static void _ui_widget_redraw_callback(gpointer instance, GtkWidget *widget)
 {
-  gtk_widget_queue_draw(widget);
+   gtk_widget_queue_draw(widget);
 }
 
 void dt_ellipsize_combo(GtkComboBox *cbox)

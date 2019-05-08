@@ -1025,7 +1025,7 @@ void dt_dev_reload_history_items(dt_develop_t *dev)
       g_list_free(childs);
 
       childs = gtk_container_get_children(GTK_CONTAINER(header));
-      wlabel = g_list_nth(childs, 1)->data;
+      wlabel = g_list_nth(childs, IOP_MODULE_LABEL)->data;
       g_list_free(childs);
       gchar *label = dt_history_item_get_name_html(module);
       gtk_label_set_markup(GTK_LABEL(wlabel), label);
@@ -1185,7 +1185,7 @@ void dt_dev_write_history_ext(dt_develop_t *dev, const int imgid)
   sqlite3_finalize(stmt);
   DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "DELETE FROM main.masks_history WHERE imgid = ?1", -1,
                               &stmt, NULL);
-  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, dev->image_storage.id);
+  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
   sqlite3_step(stmt);
   sqlite3_finalize(stmt);
   GList *history = dev->history;

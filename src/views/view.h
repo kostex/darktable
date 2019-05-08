@@ -166,8 +166,9 @@ typedef struct dt_view_image_expose_t
   int32_t py;
   gboolean full_preview;
   gboolean image_only;
+  gboolean no_deco;
   float full_zoom;
-  float *full_zoom100;
+  float full_zoom100;
   float *full_w1;
   float *full_h1;
   float full_x;

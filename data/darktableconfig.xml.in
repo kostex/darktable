@@ -1236,6 +1236,13 @@
     <shortdescription>scroll to darkroom modules when expanded/collapsed</shortdescription>
     <longdescription>when this option is enabled then darktable will try to scroll the module to the top of the visible list</longdescription>
   </dtconfig>
+  <dtconfig prefs="gui">
+    <name>darkroom/ui/sidebar_scroll_default</name>
+    <type>bool</type>
+    <default>false</default>
+    <shortdescription>mouse wheel scrolls modules side panel by default</shortdescription>
+    <longdescription>when enabled, use mouse wheel to scroll modules side panel.  use ctrl+alt to use mouse wheel for data entry.  when disabled, this behavior is reversed</longdescription>
+  </dtconfig>
   <dtconfig prefs="gui" section="darkroom">
     <name>plugins/darkroom/ui/border_size</name>
     <type>int</type>
@@ -1882,6 +1889,13 @@
     <default>${DEFCONFIG_AUDIOPLAYER}</default>
     <shortdescription>executable for playing audio files</shortdescription>
     <longdescription>this external program is used to play audio files some cameras record to keep notes for images</longdescription>
+  </dtconfig>
+  <dtconfig prefs="core">
+    <name>plugins/darkroom/lut3d/def_path</name>
+    <type>dir</type>
+    <default></default>
+    <shortdescription>3D lut root folder</shortdescription>
+    <longdescription>this folder (and sub-folders) contains Lut files used but lut3d modules</longdescription>
   </dtconfig>
   <dtconfig prefs="core" section="quality">
     <name>plugins/darkroom/basecurve/auto_apply</name>
