@@ -138,6 +138,8 @@
 @define-color thumbnail_border_color @grey_15; /* rectangle directly around image */
 @define-color thumbnail_selected_border_color @grey_90;
 @define-color filmstrip_bg_color @lighttable_bg_color;
+@define-color preview_border_color @grey_15;
+@define-color preview_hover_border_color @grey_90;
 
 /* Graphs : histogram and tone curve */
 @define-color graph_bg @grey_10;
@@ -313,7 +315,7 @@ button
   border: 1px solid @button_border;
   background-color: @button_bg;
   color: @button_fg;
-  font-weight: 600;
+  font-weight: 400;
   font-family: sans-serif;
   min-height: 1em;
   min-width: 1em;
@@ -327,7 +329,7 @@ button
   background-color: transparent;
   border-color: transparent;
   border: 0;
-  font-weight: normal;
+  font-weight: 400;
 }
 
 button:selected,
@@ -521,7 +523,7 @@ entry selection
   padding: 0 0 3pt 0;
   color: @section_label;
   border-bottom: 0.5pt solid  @section_label;
-  font-weight: 600;
+  font-weight: 500;
   font-family: sans-serif;
 }
 
@@ -905,7 +907,7 @@ dialog
 dialog *
 {
   margin: 1pt;
-  padding:0;
+  padding: 0;
 }
 
 dialog headerbar
@@ -1076,4 +1078,16 @@ cell:selected
 {
     min-height: 9em;
     min-width: 9em;
+}
+
+#live-sample
+{
+    padding: 1pt;
+    min-height: 1em;
+    min-width: 3em;
+}
+
+#live-sample-data
+{
+    font-family: courier;
 }
