@@ -1472,7 +1472,7 @@ int dt_view_image_expose(dt_view_image_expose_t *vals)
       if(img)
       {
 //      if(zoom != 1 && (!darktable.gui->show_overlays || vals->mouse_over) && extended_thumb_overlay)
-        if (zoom != 1 && extended_thumb_overlay && ((!darktable.gui->show_overlays || imgsel == imgid) || ktx_show_on_all))
+        if (zoom != 1 && extended_thumb_overlay && (!darktable.gui->show_overlays || ktx_show_on_all))
         {
           const double overlay_height = 0.33 * height;
           const int exif_offset = DT_PIXEL_APPLY_DPI(3);
