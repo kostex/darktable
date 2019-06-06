@@ -161,6 +161,7 @@ int dt_dev_pixelpipe_init_cached(dt_dev_pixelpipe_t *pipe, size_t size, int32_t 
   pipe->opencl_error = 0;
   pipe->tiling = 0;
   pipe->mask_display = DT_DEV_PIXELPIPE_DISPLAY_NONE;
+  pipe->bypass_blendif = 0;
   pipe->input_timestamp = 0;
   pipe->levels = IMAGEIO_RGB | IMAGEIO_INT8;
   dt_pthread_mutex_init(&(pipe->backbuf_mutex), NULL);
@@ -1148,7 +1149,10 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
           const int cp_height = MIN(roi_out->height, pipe->iheight - in_y);
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(pipe, roi_out, roi_in, output)
+#pragma omp parallel for default(none) \
+          dt_omp_firstprivate(bpp, cp_height, cp_width, in_x, in_y) \
+          shared(pipe, roi_out, roi_in, output) \
+          schedule(static)
 #endif
           for(int j = 0; j < cp_height; j++)
             memcpy(((char *)*output) + (size_t)bpp * j * roi_out->width,
@@ -1253,7 +1257,10 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
       else
       {
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(roi_out, roi_in, output, input)
+#pragma omp parallel for default(none) \
+        dt_omp_firstprivate(in_bpp, out_bpp) \
+        shared(roi_out, roi_in, output, input) \
+        schedule(static)
 #endif
         for(int j = 0; j < roi_out->height; j++)
             memcpy(((char *)*output) + (size_t)out_bpp * j * roi_out->width,
@@ -1262,7 +1269,10 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
       }
 #else // don't HAVE_OPENCL
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(roi_out, roi_in, output, input)
+#pragma omp parallel for default(none) \
+      dt_omp_firstprivate(in_bpp, out_bpp) \
+      shared(roi_out, roi_in, output, input) \
+      schedule(static)
 #endif
       for(int j = 0; j < roi_out->height; j++)
             memcpy(((char *)*output) + (size_t)out_bpp * j * roi_out->width,
@@ -2652,6 +2662,8 @@ restart:
 
   // mask display off as a starting point
   pipe->mask_display = DT_DEV_PIXELPIPE_DISPLAY_NONE;
+  // and blendif active
+  pipe->bypass_blendif = 0;
 
   void *buf = NULL;
   void *cl_mem_out = NULL;

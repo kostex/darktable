@@ -397,7 +397,6 @@ int dt_iop_load_module_by_so(dt_iop_module_t *module, dt_iop_module_so_t *so, dt
   module->histogram_middle_grey = FALSE;
   module->request_mask_display = DT_DEV_PIXELPIPE_DISPLAY_NONE;
   module->suppress_mask = 0;
-  module->bypass_blendif = 0;
   module->enabled = module->default_enabled = 0; // all modules disabled by default.
   g_strlcpy(module->op, so->op, 20);
   module->raster_mask.source.users = g_hash_table_new(NULL, NULL);
@@ -1068,22 +1067,18 @@ static void dt_iop_gui_off_callback(GtkToggleButton *togglebutton, gpointer user
     {
       module->enabled = 1;
 
-      dt_iop_request_focus(module);
-
       if(dt_conf_get_bool("darkroom/ui/scroll_to_module"))
         darktable.gui->scroll_to[1] = module->expander;
 
-      if(dt_conf_get_bool("darkroom/ui/activate_expand"))
+      if(dt_conf_get_bool("darkroom/ui/activate_expand") && !module->expanded)
         dt_iop_gui_set_expanded(module, TRUE, dt_conf_get_bool("darkroom/ui/single_module"));
     }
     else
     {
       module->enabled = 0;
 
-      if(dt_conf_get_bool("darkroom/ui/activate_expand"))
+      if(dt_conf_get_bool("darkroom/ui/activate_expand") && module->expanded)
         dt_iop_gui_set_expanded(module, FALSE, FALSE);
-
-      dt_iop_request_focus(NULL);
     }
     dt_dev_add_history_item(module->dev, module, FALSE);
   }

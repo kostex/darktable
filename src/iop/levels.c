@@ -401,7 +401,9 @@ void process(dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, const void *c
   }
 
 #ifdef _OPENMP
-#pragma omp parallel for default(none) schedule(static)
+#pragma omp parallel for default(none) \
+  dt_omp_firstprivate(ch, d, ivoid, ovoid, roi_out) \
+  schedule(static)
 #endif
   for(int k = 0; k < roi_out->height; k++)
   {
@@ -1035,6 +1037,8 @@ static gboolean dt_iop_levels_button_press(GtkWidget *widget, GdkEventButton *ev
   {
     dt_iop_module_t *self = (dt_iop_module_t *)user_data;
 
+    if(darktable.develop->gui_module != self) dt_iop_request_focus(self);
+
     if(event->type == GDK_2BUTTON_PRESS)
     {
       // Reset
@@ -1082,6 +1086,8 @@ static gboolean dt_iop_levels_scroll(GtkWidget *widget, GdkEventScroll *event, g
   {
     return FALSE;
   }
+
+  if(darktable.develop->gui_module != self) dt_iop_request_focus(self);
 
   const float interval = 0.002; // Distance moved for each scroll event
   gdouble delta_y;
