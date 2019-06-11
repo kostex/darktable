@@ -979,7 +979,7 @@ static gboolean skip_b_key_accel_callback(GtkAccelGroup *accel_group, GObject *a
 
 static void _darkroom_ui_pipe_finish_signal_callback(gpointer instance, gpointer data)
 {
-  dt_control_queue_redraw();
+  dt_control_queue_redraw_center();
 }
 
 static void _darkroom_ui_preview2_pipe_finish_signal_callback(gpointer instance, gpointer user_data)
@@ -2400,10 +2400,13 @@ void enter(dt_view_t *self)
       dt_iop_gui_set_expanded(module, dt_conf_get_bool(option), FALSE);
     }
 
-    /* setup key accelerators */
+    /* setup key accelerators (only if not hidden) */
     module->accel_closures = NULL;
-    if(module->connect_key_accels) module->connect_key_accels(module);
-    dt_iop_connect_common_accels(module);
+    if(module->so->state != dt_iop_state_HIDDEN)
+    {
+      if(module->connect_key_accels) module->connect_key_accels(module);
+      dt_iop_connect_common_accels(module);
+    }
 
     modules = g_list_previous(modules);
   }

@@ -953,6 +953,9 @@ static void _pixelpipe_final_histogram(dt_develop_t *dev, const float *const inp
                                             profile_info_to, "final histogram");
   }
 
+  dt_times_t start_time = { 0 };
+  if(darktable.unmuted & DT_DEBUG_PERF) dt_get_times(&start_time);
+
   dev->histogram_max = 0;
   memset(dev->histogram, 0, sizeof(uint32_t) * 4 * 256);
 
@@ -965,10 +968,20 @@ static void _pixelpipe_final_histogram(dt_develop_t *dev, const float *const inp
   dev->histogram_max = MAX(MAX(histogram_max[0], histogram_max[1]), histogram_max[2]);
 
   if(img_tmp) dt_free_align(img_tmp);
+
+  if(darktable.unmuted & DT_DEBUG_PERF)
+  {
+    dt_times_t end_time = { 0 };
+    dt_get_times(&end_time);
+    fprintf(stderr, "final histogram took %.3f secs (%.3f CPU)\n", end_time.clock - start_time.clock, end_time.user - start_time.user);
+  }
 }
 
 static void _pixelpipe_final_histogram_waveform(dt_develop_t *dev, const float *const input, const dt_iop_roi_t *roi_in)
 {
+  dt_times_t start_time = { 0 };
+  if(darktable.unmuted & DT_DEBUG_PERF) dt_get_times(&start_time);
+
   uint32_t *buf = (uint32_t *)calloc(dev->histogram_waveform_height * dev->histogram_waveform_width * 3,
                                      sizeof(uint32_t));
   memset(dev->histogram_waveform, 0,
@@ -1034,6 +1047,13 @@ static void _pixelpipe_final_histogram_waveform(dt_develop_t *dev, const float *
   }
 
   free(buf);
+
+  if(darktable.unmuted & DT_DEBUG_PERF)
+  {
+    dt_times_t end_time = { 0 };
+    dt_get_times(&end_time);
+    fprintf(stderr, "final histogram waveform took %.3f secs (%.3f CPU)\n", end_time.clock - start_time.clock, end_time.user - start_time.user);
+  }
 }
 
 // returns 1 if blend process need the module default colorspace
@@ -1089,8 +1109,15 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
     dt_pthread_mutex_unlock(&pipe->busy_mutex);
     return 1;
   }
-  uint64_t hash = dt_dev_pixelpipe_cache_hash(pipe->image.id, roi_out, pipe, pos);
-  if(dt_dev_pixelpipe_cache_available(&(pipe->cache), hash))
+  int cache_available = 0;
+  uint64_t hash = 0;
+  // do not get gamma from cache on preview pipe so we can compute the final histogram
+  if(pipe->type != DT_DEV_PIXELPIPE_PREVIEW || module == NULL || strcmp(module->op, "gamma") != 0)
+  {
+    hash = dt_dev_pixelpipe_cache_hash(pipe->image.id, roi_out, pipe, pos);
+    cache_available = dt_dev_pixelpipe_cache_available(&(pipe->cache), hash);
+  }
+  if(cache_available)
   {
     // if(module) printf("found valid buf pos %d in cache for module %s %s %lu\n", pos, module->op, pipe ==
     // dev->preview_pipe ? "[preview]" : "", hash);
@@ -1221,7 +1248,12 @@ static int dt_dev_pixelpipe_process_rec(dt_dev_pixelpipe_t *pipe, dt_develop_t *
       return 1;
     }
 
-    if(!strcmp(module->op, "gamma"))
+    gboolean important = FALSE;
+    if(pipe->type == DT_DEV_PIXELPIPE_PREVIEW)
+      important = (strcmp(module->op, "colorout") == 0);
+    else
+      important = (strcmp(module->op, "gamma") == 0);
+    if(important)
       (void)dt_dev_pixelpipe_cache_get_important(&(pipe->cache), hash, bufsize, output, out_format);
     else
       (void)dt_dev_pixelpipe_cache_get(&(pipe->cache), hash, bufsize, output, out_format);
@@ -2494,7 +2526,7 @@ post_process_collect_info:
       // this HAS to be done on the float input data, otherwise we get really ugly artifacts due to rounding
       // issues when putting colors into the bins.
       //       dt_pthread_mutex_lock(&dev->histogram_waveform_mutex);
-      if(dev->histogram_waveform_width != 0 && input)
+      if(dev->histogram_waveform_width != 0 && input && dev->histogram_type == DT_DEV_HISTOGRAM_WAVEFORM)
       {
         _pixelpipe_final_histogram_waveform(dev, (const float *const )input, &roi_in);
       }
