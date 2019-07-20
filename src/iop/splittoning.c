@@ -225,7 +225,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_splittoning_data_t *d = (dt_iop_splittoning_data_t *)piece->data;
-  dt_iop_splittoning_global_data_t *gd = (dt_iop_splittoning_global_data_t *)self->data;
+  dt_iop_splittoning_global_data_t *gd = (dt_iop_splittoning_global_data_t *)self->global_data;
 
   cl_int err = -999;
   const int devid = piece->pipe->devid;
@@ -481,12 +481,13 @@ static void _iop_color_picker_apply(struct dt_iop_module_t *self, dt_dev_pixelpi
   *p_hue        = H;
   *p_saturation = S;
 
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
   dt_bauhaus_slider_set(hue, H);
   dt_bauhaus_slider_set(sat, S);
   update_colorpicker_color(colorpicker, H, S);
   update_saturation_slider_end_color(sat, H);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 
   dt_dev_add_history_item(darktable.develop, self, TRUE);
 }

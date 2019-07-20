@@ -587,7 +587,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_colormapping_data_t *data = (dt_iop_colormapping_data_t *)piece->data;
-  dt_iop_colormapping_global_data_t *gd = (dt_iop_colormapping_global_data_t *)self->data;
+  dt_iop_colormapping_global_data_t *gd = (dt_iop_colormapping_global_data_t *)self->global_data;
   dt_iop_colormapping_gui_data_t *g = (dt_iop_colormapping_gui_data_t *)self->gui_data;
 
   cl_int err = -999;
@@ -1011,6 +1011,7 @@ static void process_clusters(gpointer instance, gpointer user_data)
   if(!g || !g->buffer) return;
   if(!(p->flag & ACQUIRE)) return;
 
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
 
   dt_pthread_mutex_lock(&g->lock);
@@ -1077,7 +1078,7 @@ static void process_clusters(gpointer instance, gpointer user_data)
   }
 
   p->flag &= ~(GET_TARGET | GET_SOURCE | ACQUIRE);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 
   if(p->flag & HAS_SOURCE) dt_dev_add_history_item(darktable.develop, self, TRUE);
 

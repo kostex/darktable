@@ -177,9 +177,10 @@ static void _iop_color_picker_apply(dt_iop_module_t *self, dt_dev_pixelpipe_iop_
   dt_iop_invert_params_t *p = self->params;
   for(int k = 0; k < 4; k++) p->color[k] = grayrgb[k];
 
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
   gui_update_from_coeffs(self);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 
   dt_dev_add_history_item(darktable.develop, self, TRUE);
   dt_control_queue_redraw_widget(self->widget);
@@ -445,7 +446,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_invert_data_t *d = (dt_iop_invert_data_t *)piece->data;
-  dt_iop_invert_global_data_t *gd = (dt_iop_invert_global_data_t *)self->data;
+  dt_iop_invert_global_data_t *gd = (dt_iop_invert_global_data_t *)self->global_data;
 
   const int devid = piece->pipe->devid;
   const uint32_t filters = piece->pipe->dsc.filters;

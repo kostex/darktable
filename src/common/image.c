@@ -607,6 +607,20 @@ void dt_image_set_aspect_ratio_to(const int32_t imgid, double aspect_ratio)
   }
 }
 
+void dt_image_reset_aspect_ratio(const int32_t imgid)
+{
+  sqlite3_stmt *stmt;
+
+  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "UPDATE images SET aspect_ratio=0.0 WHERE id=?1", -1,
+                              &stmt, NULL);
+  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  if(darktable.collection->params.sort == DT_COLLECTION_SORT_ASPECT_RATIO)
+    dt_control_signal_raise(darktable.signals, DT_SIGNAL_COLLECTION_CHANGED);
+}
+
 double dt_image_set_aspect_ratio(const int32_t imgid)
 {
   dt_mipmap_buffer_t buf;
@@ -1697,6 +1711,8 @@ int32_t dt_image_copy_rename(const int32_t imgid, const int32_t filmid, const gc
 
         // write xmp file
         dt_image_write_sidecar_file(newid);
+
+        dt_collection_update_query(darktable.collection);
       }
 
       g_free(filename);

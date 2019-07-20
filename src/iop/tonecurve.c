@@ -268,7 +268,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_tonecurve_data_t *d = (dt_iop_tonecurve_data_t *)piece->data;
-  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->data;
+  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->global_data;
   cl_mem dev_L = NULL;
   cl_mem dev_a = NULL;
   cl_mem dev_b = NULL;
@@ -1101,7 +1101,7 @@ static float to_lin(const float x, const float base, const int ch, const int sem
 
 static void _iop_color_picker_apply(dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece)
 {
-  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->data;
+  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->global_data;
 
   for(int k=0; k<3; k++)
   {
@@ -1129,12 +1129,12 @@ static int _iop_color_picker_get_set(dt_iop_module_t *self, GtkWidget *button)
 static void _iop_color_picker_update(dt_iop_module_t *self)
 {
   dt_iop_tonecurve_gui_data_t *g = (dt_iop_tonecurve_gui_data_t *)self->gui_data;
-  const int old_reset = darktable.gui->reset;
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
 
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->colorpicker), g->color_picker.current_picker == 1);
 
-  darktable.gui->reset = old_reset;
+  darktable.gui->reset = reset;
   dt_control_queue_redraw_widget(self->widget);
 }
 
@@ -1468,7 +1468,7 @@ static gboolean dt_iop_tonecurve_draw(GtkWidget *widget, cairo_t *crf, gpointer 
   dt_iop_tonecurve_gui_data_t *c = (dt_iop_tonecurve_gui_data_t *)self->gui_data;
   dt_iop_tonecurve_params_t *p = (dt_iop_tonecurve_params_t *)self->params;
   dt_develop_t *dev = darktable.develop;
-  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->data;
+  dt_iop_tonecurve_global_data_t *gd = (dt_iop_tonecurve_global_data_t *)self->global_data;
 
   int ch = c->channel;
   int nodes = p->tonecurve_nodes[ch];

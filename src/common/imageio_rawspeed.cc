@@ -125,7 +125,9 @@ dt_imageio_retval_t dt_imageio_open_rawspeed(dt_image_t *img, const char *filena
   {
     dt_rawspeed_load_meta();
 
+    dt_pthread_mutex_lock(&darktable.readFile_mutex);
     m = f.readFile();
+    dt_pthread_mutex_unlock(&darktable.readFile_mutex);
 
     RawParser t(m.get());
     d = t.getDecoder(meta);
@@ -182,7 +184,7 @@ dt_imageio_retval_t dt_imageio_open_rawspeed(dt_image_t *img, const char *filena
       {"Canon EOS","Canon EOS Kiss Digital X"},
     };
 
-    for (uint32 i=0; i<(sizeof(legacy_aliases)/sizeof(legacy_aliases[1])); i++)
+    for(uint32_t i = 0; i < (sizeof(legacy_aliases) / sizeof(legacy_aliases[1])); i++)
       if (!strcmp(legacy_aliases[i].origname, r->metadata.model.c_str())) {
         g_strlcpy(img->camera_legacy_makermodel, legacy_aliases[i].mungedname, sizeof(img->camera_legacy_makermodel));
         break;

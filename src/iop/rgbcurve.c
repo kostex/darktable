@@ -621,7 +621,7 @@ static void _iop_color_picker_update(dt_iop_module_t *self)
 {
   dt_iop_rgbcurve_gui_data_t *g = (dt_iop_rgbcurve_gui_data_t *)self->gui_data;
   const int which_colorpicker = g->color_picker.current_picker;
-  const int old_reset = darktable.gui->reset;
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
 
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->colorpicker),
@@ -629,7 +629,7 @@ static void _iop_color_picker_update(dt_iop_module_t *self)
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->colorpicker_set_values),
                                which_colorpicker == DT_IOP_RGBCURVE_PICK_SET_VALUES);
 
-  darktable.gui->reset = old_reset;
+  darktable.gui->reset = reset;
   dt_control_queue_redraw_widget(self->widget);
 }
 
@@ -1489,17 +1489,17 @@ void gui_init(struct dt_iop_module_t *self)
                            gtk_label_new(_("  R  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(g->channel_tabs, gtk_notebook_get_nth_page(g->channel_tabs, -1)),
-      _("curve_nodes for r channel"));
+      _("curve nodes for r channel"));
   gtk_notebook_append_page(GTK_NOTEBOOK(g->channel_tabs), GTK_WIDGET(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)),
                            gtk_label_new(_("  G  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(g->channel_tabs, gtk_notebook_get_nth_page(g->channel_tabs, -1)),
-      _("curve_nodes for g channel"));
+      _("curve nodes for g channel"));
   gtk_notebook_append_page(GTK_NOTEBOOK(g->channel_tabs), GTK_WIDGET(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)),
                            gtk_label_new(_("  B  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(g->channel_tabs, gtk_notebook_get_nth_page(g->channel_tabs, -1)),
-      _("curve_nodes for b channel"));
+      _("curve nodes for b channel"));
 
   gtk_widget_show_all(GTK_WIDGET(gtk_notebook_get_nth_page(g->channel_tabs, g->channel)));
   gtk_notebook_set_current_page(GTK_NOTEBOOK(g->channel_tabs), g->channel);
@@ -1810,7 +1810,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
   const dt_iop_order_iccprofile_info_t *const work_profile = dt_ioppr_get_pipe_work_profile_info(piece->pipe);
 
   dt_iop_rgbcurve_data_t *d = (dt_iop_rgbcurve_data_t *)piece->data;
-  dt_iop_rgbcurve_global_data_t *gd = (dt_iop_rgbcurve_global_data_t *)self->data;
+  dt_iop_rgbcurve_global_data_t *gd = (dt_iop_rgbcurve_global_data_t *)self->global_data;
 
   _generate_curve_lut(piece->pipe, d);
 

@@ -160,8 +160,8 @@ static void default_cleanup(dt_iop_module_t *module)
   module->gui_data = NULL; // just to be sure
   g_free(module->params);
   module->params = NULL;
-  g_free(module->data); // just to be sure
-  module->data = NULL;
+  g_free(module->global_data); // just to be sure
+  module->global_data = NULL;
 }
 
 
@@ -493,7 +493,7 @@ int dt_iop_load_module_by_so(dt_iop_module_t *module, dt_iop_module_so_t *so, dt
     dt_iop_gui_set_state(module, state);
   }
 
-  module->data = so->data;
+  module->global_data = so->data;
 
   // now init the instance:
   module->init(module);
@@ -571,6 +571,7 @@ static void dt_iop_gui_delete_callback(GtkButton *button, dt_iop_module_t *modul
   dt_iop_gui_set_expanded(next, TRUE, FALSE);
   gtk_widget_grab_focus(next->expander);
 
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
 
   // we remove the plugin effectively
@@ -656,7 +657,7 @@ static void dt_iop_gui_delete_callback(GtkButton *button, dt_iop_module_t *modul
   /* redraw */
   dt_control_queue_redraw_center();
 
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 }
 
 dt_iop_module_t *dt_iop_gui_get_previous_visible_module(dt_iop_module_t *module)
@@ -1446,7 +1447,7 @@ int dt_iop_load_module(dt_iop_module_t *module, dt_iop_module_so_t *module_so, d
     free(module);
     return 1;
   }
-  module->data = module_so->data;
+  module->global_data = module_so->data;
   module->so = module_so;
   dt_iop_reload_defaults(module);
   return 0;
@@ -1469,7 +1470,7 @@ GList *dt_iop_load_modules_ext(dt_develop_t *dev, gboolean no_image)
       continue;
     }
     res = g_list_insert_sorted(res, module, dt_sort_iop_by_order);
-    module->data = module_so->data;
+    module->global_data = module_so->data;
     module->so = module_so;
     if(!no_image) dt_iop_reload_defaults(module);
     iop = g_list_next(iop);

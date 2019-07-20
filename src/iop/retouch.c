@@ -2041,9 +2041,10 @@ void gui_post_expose (struct dt_iop_module_t *self,
 
   if(rt_get_selected_shape_id() > 0)
   {
+    const int reset = darktable.gui->reset;
     darktable.gui->reset = 1;
     dt_bauhaus_slider_set(g->sl_mask_opacity, rt_masks_form_get_opacity(self, rt_get_selected_shape_id()));
-    darktable.gui->reset = 0;
+    darktable.gui->reset = reset;
   }
 }
 
@@ -5007,7 +5008,7 @@ static cl_int rt_process_forms_cl(cl_mem dev_layer, dwt_params_cl_t *const wt_p,
 
   dt_develop_blend_params_t *bp = (dt_develop_blend_params_t *)piece->blendop_data;
   dt_iop_retouch_params_t *p = (dt_iop_retouch_params_t *)piece->data;
-  dt_iop_retouch_global_data_t *gd = (dt_iop_retouch_global_data_t *)self->data;
+  dt_iop_retouch_global_data_t *gd = (dt_iop_retouch_global_data_t *)self->global_data;
   const int devid = piece->pipe->devid;
   dt_iop_roi_t *roi_layer = &usr_d->roi;
   const int mask_display = usr_d->mask_display && (scale == usr_d->display_scale);
@@ -5196,7 +5197,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_retouch_params_t *p = (dt_iop_retouch_params_t *)piece->data;
-  dt_iop_retouch_global_data_t *gd = (dt_iop_retouch_global_data_t *)self->data;
+  dt_iop_retouch_global_data_t *gd = (dt_iop_retouch_global_data_t *)self->global_data;
   dt_iop_retouch_gui_data_t *g = (dt_iop_retouch_gui_data_t *)self->gui_data;
 
   cl_int err = CL_SUCCESS;

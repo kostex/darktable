@@ -665,7 +665,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_lut3d_data_t *d = (dt_iop_lut3d_data_t *)piece->data;
-  dt_iop_lut3d_global_data_t *gd = (dt_iop_lut3d_global_data_t *)self->data;
+  dt_iop_lut3d_global_data_t *gd = (dt_iop_lut3d_global_data_t *)self->global_data;
   cl_int err = CL_SUCCESS;
   const float *const clut = (float *)d->clut;
   const int level = d->level;
@@ -800,7 +800,7 @@ void filepath_set_unix_separator(char *filepath)
 
 void init(dt_iop_module_t *self)
 {
-  self->data = NULL;
+  self->global_data = NULL;
   self->params = calloc(1, sizeof(dt_iop_lut3d_params_t));
   self->default_params = calloc(1, sizeof(dt_iop_lut3d_params_t));
   self->default_enabled = 0;
@@ -966,7 +966,7 @@ static void update_filepath_combobox(dt_iop_lut3d_gui_data_t *g, char *filepath,
     {
       dt_bauhaus_combobox_clear(g->filepath);
       char *ext = g_ascii_strdown(g_strdup(g_strrstr(filepath,".")), -1);
-      if (ext[0])
+      if (ext && ext[0])
       {
         while ((dir = readdir(d)) != NULL)
         {

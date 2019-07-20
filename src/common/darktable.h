@@ -108,7 +108,7 @@ typedef unsigned int u_int;
 
 #include "common/usermanual_url.h"
 
-#define DT_MODULE_VERSION 19 // version of dt's module interface
+#define DT_MODULE_VERSION 20 // version of dt's module interface
 
 // version of current performance configuration version
 // if you want to run an updated version of the performance configuration later
@@ -252,6 +252,7 @@ typedef struct darktable_t
   dt_pthread_mutex_t plugin_threadsafe;
   dt_pthread_mutex_t capabilities_threadsafe;
   dt_pthread_mutex_t exiv2_threadsafe;
+  dt_pthread_mutex_t readFile_mutex;
   char *progname;
   char *datadir;
   char *plugindir;

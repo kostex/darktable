@@ -433,7 +433,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_borders_data_t *d = (dt_iop_borders_data_t *)piece->data;
-  dt_iop_borders_global_data_t *gd = (dt_iop_borders_global_data_t *)self->data;
+  dt_iop_borders_global_data_t *gd = (dt_iop_borders_global_data_t *)self->global_data;
 
   cl_int err = -999;
   const int devid = piece->pipe->devid;
@@ -661,10 +661,11 @@ static void _iop_color_picker_update(dt_iop_module_t *self)
 {
   dt_iop_borders_gui_data_t *g = (dt_iop_borders_gui_data_t *)self->gui_data;
   const dt_iop_borders_pickcolor_type_t which_colorpicker = g->color_picker.current_picker;
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
   gtk_toggle_button_set_active(g->frame_picker, which_colorpicker == DT_BORDERS_FRAME);
   gtk_toggle_button_set_active(g->border_picker, which_colorpicker == DT_BORDERS_BORDER);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 }
 
 static void aspect_changed(GtkWidget *combo, dt_iop_module_t *self)

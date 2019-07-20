@@ -854,11 +854,12 @@ static void _iop_color_picker_update(dt_iop_module_t *self)
 {
   dt_iop_rgblevels_gui_data_t *g = (dt_iop_rgblevels_gui_data_t *)self->gui_data;
   const dt_iop_rgblevels_pick_t which_colorpicker = g->color_picker.current_picker;
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->blackpick), which_colorpicker == DT_IOP_RGBLEVELS_PICK_BLACK);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->greypick), which_colorpicker == DT_IOP_RGBLEVELS_PICK_GREY);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->whitepick), which_colorpicker == DT_IOP_RGBLEVELS_PICK_WHITE);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 }
 
 void commit_params(dt_iop_module_t *self, dt_iop_params_t *p1, dt_dev_pixelpipe_t *pipe,
@@ -1020,17 +1021,17 @@ void gui_init(dt_iop_module_t *self)
                            gtk_label_new(_("  R  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(c->channel_tabs, gtk_notebook_get_nth_page(c->channel_tabs, -1)),
-      _("curve_nodes for r channel"));
+      _("curve nodes for r channel"));
   gtk_notebook_append_page(GTK_NOTEBOOK(c->channel_tabs), GTK_WIDGET(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)),
                            gtk_label_new(_("  G  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(c->channel_tabs, gtk_notebook_get_nth_page(c->channel_tabs, -1)),
-      _("curve_nodes for c channel"));
+      _("curve nodes for g channel"));
   gtk_notebook_append_page(GTK_NOTEBOOK(c->channel_tabs), GTK_WIDGET(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0)),
                            gtk_label_new(_("  B  ")));
   gtk_widget_set_tooltip_text(
       gtk_notebook_get_tab_label(c->channel_tabs, gtk_notebook_get_nth_page(c->channel_tabs, -1)),
-      _("curve_nodes for b channel"));
+      _("curve nodes for b channel"));
 
   gtk_widget_show_all(GTK_WIDGET(gtk_notebook_get_nth_page(c->channel_tabs, c->channel)));
   gtk_notebook_set_current_page(GTK_NOTEBOOK(c->channel_tabs), c->channel);
@@ -1401,7 +1402,7 @@ int process_cl(dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_mem dev_
   dt_iop_rgblevels_data_t *d = (dt_iop_rgblevels_data_t *)piece->data;
   dt_iop_rgblevels_params_t *p = (dt_iop_rgblevels_params_t *)&d->params;
   dt_iop_rgblevels_gui_data_t *g = (dt_iop_rgblevels_gui_data_t *)self->gui_data;
-  dt_iop_rgblevels_global_data_t *gd = (dt_iop_rgblevels_global_data_t *)self->data;
+  dt_iop_rgblevels_global_data_t *gd = (dt_iop_rgblevels_global_data_t *)self->global_data;
 
   cl_int err = CL_SUCCESS;
 

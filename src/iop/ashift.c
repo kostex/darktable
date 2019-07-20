@@ -2974,7 +2974,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_ashift_data_t *d = (dt_iop_ashift_data_t *)piece->data;
-  dt_iop_ashift_global_data_t *gd = (dt_iop_ashift_global_data_t *)self->data;
+  dt_iop_ashift_global_data_t *gd = (dt_iop_ashift_global_data_t *)self->global_data;
   dt_iop_ashift_gui_data_t *g = (dt_iop_ashift_gui_data_t *)self->gui_data;
 
   const int devid = piece->pipe->devid;
@@ -4231,12 +4231,13 @@ static int fit_v_button_clicked(GtkWidget *widget, GdkEventButton *event, gpoint
       // module is enable -> we process directly
       if(do_fit(self, p, fitaxis))
       {
+        const int reset = darktable.gui->reset;
         darktable.gui->reset = 1;
         dt_bauhaus_slider_set_soft(g->rotation, p->rotation);
         dt_bauhaus_slider_set_soft(g->lensshift_v, p->lensshift_v);
         dt_bauhaus_slider_set_soft(g->lensshift_h, p->lensshift_h);
         dt_bauhaus_slider_set_soft(g->shear, p->shear);
-        darktable.gui->reset = 0;
+        darktable.gui->reset = reset;
       }
     }
     else
@@ -4284,12 +4285,13 @@ static int fit_h_button_clicked(GtkWidget *widget, GdkEventButton *event, gpoint
       // module is enable -> we process directly
       if(do_fit(self, p, fitaxis))
       {
+        const int reset = darktable.gui->reset;
         darktable.gui->reset = 1;
         dt_bauhaus_slider_set_soft(g->rotation, p->rotation);
         dt_bauhaus_slider_set_soft(g->lensshift_v, p->lensshift_v);
         dt_bauhaus_slider_set_soft(g->lensshift_h, p->lensshift_h);
         dt_bauhaus_slider_set_soft(g->shear, p->shear);
-        darktable.gui->reset = 0;
+        darktable.gui->reset = reset;
       }
     }
     else
@@ -4339,12 +4341,13 @@ static int fit_both_button_clicked(GtkWidget *widget, GdkEventButton *event, gpo
       // module is enable -> we process directly
       if(do_fit(self, p, fitaxis))
       {
+        const int reset = darktable.gui->reset;
         darktable.gui->reset = 1;
         dt_bauhaus_slider_set_soft(g->rotation, p->rotation);
         dt_bauhaus_slider_set_soft(g->lensshift_v, p->lensshift_v);
         dt_bauhaus_slider_set_soft(g->lensshift_h, p->lensshift_h);
         dt_bauhaus_slider_set_soft(g->shear, p->shear);
-        darktable.gui->reset = 0;
+        darktable.gui->reset = reset;
       }
     }
     else
@@ -4464,12 +4467,13 @@ static void process_after_preview_callback(gpointer instance, gpointer user_data
     case ASHIFT_JOBCODE_FIT:
       if(do_fit(self, p, (dt_iop_ashift_fitaxis_t)jobparams))
       {
+        const int reset = darktable.gui->reset;
         darktable.gui->reset = 1;
         dt_bauhaus_slider_set_soft(g->rotation, p->rotation);
         dt_bauhaus_slider_set_soft(g->lensshift_v, p->lensshift_v);
         dt_bauhaus_slider_set_soft(g->lensshift_h, p->lensshift_h);
         dt_bauhaus_slider_set_soft(g->shear, p->shear);
-        darktable.gui->reset = 0;
+        darktable.gui->reset = reset;
       }
       dt_dev_add_history_item(darktable.develop, self, TRUE);
       break;
@@ -4723,11 +4727,12 @@ static gboolean draw(GtkWidget *widget, cairo_t *cr, dt_iop_module_t *self)
   snprintf(string_v, sizeof(string_v), _("lens shift (%s)"), isflipped ? _("horizontal") : _("vertical"));
   snprintf(string_h, sizeof(string_h), _("lens shift (%s)"), isflipped ? _("vertical") : _("horizontal"));
 
+  const int reset = darktable.gui->reset;
   darktable.gui->reset = 1;
   dt_bauhaus_widget_set_label(g->lensshift_v, NULL, string_v);
   dt_bauhaus_widget_set_label(g->lensshift_h, NULL, string_h);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g->eye), g->lines_suppressed);
-  darktable.gui->reset = 0;
+  darktable.gui->reset = reset;
 
   return FALSE;
 }

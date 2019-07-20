@@ -544,7 +544,7 @@ int process_cl(struct dt_iop_module_t *self, dt_dev_pixelpipe_iop_t *piece, cl_m
                const dt_iop_roi_t *const roi_in, const dt_iop_roi_t *const roi_out)
 {
   dt_iop_colorchecker_data_t *d = (dt_iop_colorchecker_data_t *)piece->data;
-  dt_iop_colorchecker_global_data_t *gd = (dt_iop_colorchecker_global_data_t *)self->data;
+  dt_iop_colorchecker_global_data_t *gd = (dt_iop_colorchecker_global_data_t *)self->global_data;
 
   const int devid = piece->pipe->devid;
   const int width = roi_out->width;
@@ -1178,11 +1178,12 @@ static gboolean checker_draw(GtkWidget *widget, cairo_t *crf, gpointer user_data
     // freshly picked, also select it in gui:
     int pick = self->request_color_pick;
     g->drawn_patch = cells_x * bestj + besti;
+    const int reset = darktable.gui->reset;
     darktable.gui->reset = 1;
     dt_bauhaus_combobox_set(g->combobox_patch, g->drawn_patch);
     g->patch = g->drawn_patch;
     self->gui_update(self);
-    darktable.gui->reset = 0;
+    darktable.gui->reset = reset;
     self->request_color_pick = pick; // restore, the combobox will kill it
   }
   cairo_set_line_width(cr, DT_PIXEL_APPLY_DPI(2.));
