@@ -22,6 +22,7 @@
 #include "common/colorspaces.h"
 #include "common/darktable.h"
 #include "common/debug.h"
+#include "common/file_location.h"
 #include "common/image_cache.h"
 #include "common/imageio.h"
 #include "common/imageio_module.h"
@@ -915,7 +916,6 @@ static gboolean zoom_key_accel(GtkAccelGroup *accel_group, GObject *acceleratabl
       dt_control_set_dev_zoom_x(zoom_x);
       dt_control_set_dev_zoom_y(zoom_y);
       dt_control_set_dev_closeup(closeup);
-      dt_dev_invalidate(dev);
       break;
     case 2:
       zoom_x = zoom_y = 0.0f;
@@ -924,18 +924,19 @@ static gboolean zoom_key_accel(GtkAccelGroup *accel_group, GObject *acceleratabl
       dt_control_set_dev_zoom_x(zoom_x);
       dt_control_set_dev_zoom_y(zoom_y);
       dt_control_set_dev_closeup(0);
-      dt_dev_invalidate(dev);
       break;
     case 3:
       dt_control_set_dev_zoom(DT_ZOOM_FIT);
       dt_control_set_dev_zoom_x(0);
       dt_control_set_dev_zoom_y(0);
       dt_control_set_dev_closeup(0);
-      dt_dev_invalidate(dev);
       break;
     default:
       break;
   }
+  dt_dev_invalidate(dev);
+  dt_control_queue_redraw_center();
+  dt_control_navigation_redraw();
   return TRUE;
 }
 
@@ -2845,6 +2846,8 @@ int button_pressed(dt_view_t *self, double x, double y, double pressure, int whi
     dt_control_set_dev_zoom_x(zoom_x);
     dt_control_set_dev_zoom_y(zoom_y);
     dt_dev_invalidate(dev);
+    dt_control_queue_redraw_center();
+    dt_control_navigation_redraw();
     return 1;
   }
   return 0;
@@ -3624,8 +3627,8 @@ static int second_window_button_pressed(GtkWidget *widget, dt_develop_t *dev, do
     dt_second_window_get_processed_size(dev, &procw, &proch);
     const float scale = dt_second_window_get_zoom_scale(dev, zoom, 1 << closeup, 0);
 
-    zoom_x += (1.0 / scale) * (x - .5f * dev->width) / procw;
-    zoom_y += (1.0 / scale) * (y - .5f * dev->height) / proch;
+    zoom_x += (1.0 / scale) * (x - .5f * dev->second_window.width) / procw;
+    zoom_y += (1.0 / scale) * (y - .5f * dev->second_window.height) / proch;
 
     if(zoom == DT_ZOOM_1)
     {
