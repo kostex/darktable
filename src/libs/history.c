@@ -718,40 +718,6 @@ static void _lib_history_compress_clicked_callback(GtkWidget *widget, gpointer u
 {
   const int32_t imgid = darktable.develop->image_storage.id;
   if(!imgid) return;
-  // make sure the right history is in there:
-  dt_dev_write_history(darktable.develop);
-  sqlite3_stmt *stmt;
-
-  // compress history
-  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "DELETE FROM main.history WHERE imgid = ?1 AND num "
-                                                             "NOT IN (SELECT MAX(num) FROM main.history WHERE "
-                                                             "imgid = ?1 AND num < ?2 GROUP BY operation, "
-                                                             "multi_priority)", -1, &stmt, NULL);
-  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
-  DT_DEBUG_SQLITE3_BIND_INT(stmt, 2, darktable.develop->history_end);
-  sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-
-  if(dt_conf_get_bool("ktx/delete_off_modules"))
-  {
-    // remove disabled modules
-    DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "DELETE FROM main.history WHERE imgid = ?1 AND "
-                                                               "enabled = 0", -1, &stmt, NULL);
-    DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
-    sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-  }
-
-  // delete all mask_manager entries
-  int masks_count = 0;
-  char op_mask_manager[20] = {0};
-  g_strlcpy(op_mask_manager, "mask_manager", sizeof(op_mask_manager));
-
-  DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "DELETE FROM main.history WHERE imgid = ?1 AND operation = ?2", -1, &stmt, NULL);
-  DT_DEBUG_SQLITE3_BIND_INT(stmt, 1, imgid);
-  DT_DEBUG_SQLITE3_BIND_TEXT(stmt, 2, op_mask_manager, -1, SQLITE_TRANSIENT);
-  sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
 
   dt_history_compress_on_image(imgid);
 
