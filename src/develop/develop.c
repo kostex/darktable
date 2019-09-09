@@ -1167,9 +1167,9 @@ void dt_dev_pop_history_items(dt_develop_t *dev, int32_t cnt)
 
   if(!dev_iop_changed)
   {
-  dev->pipe->changed |= DT_DEV_PIPE_SYNCH;
-  dev->preview_pipe->changed |= DT_DEV_PIPE_SYNCH; // again, fixed topology for now.
-  dev->preview2_pipe->changed |= DT_DEV_PIPE_SYNCH; // again, fixed topology for now.
+    dev->pipe->changed |= DT_DEV_PIPE_SYNCH;
+    dev->preview_pipe->changed |= DT_DEV_PIPE_SYNCH; // again, fixed topology for now.
+    dev->preview2_pipe->changed |= DT_DEV_PIPE_SYNCH; // again, fixed topology for now.
   }
   else
   {
@@ -1236,9 +1236,9 @@ static void auto_apply_presets(dt_develop_t *dev)
   // be extra sure that we don't mess up history in separate threads:
   dt_pthread_mutex_lock(&darktable.db_insert);
 
-  int run = 0;
+  gboolean run = FALSE;
   dt_image_t *image = dt_image_cache_get(darktable.image_cache, imgid, 'w');
-  if(!(image->flags & DT_IMAGE_AUTO_PRESETS_APPLIED)) run = 1;
+  if(!(image->flags & DT_IMAGE_AUTO_PRESETS_APPLIED)) run = TRUE;
 
   // flag was already set? only apply presets once in the lifetime of a history stack.
   // (the flag will be cleared when removing it)
@@ -1285,14 +1285,13 @@ static void auto_apply_presets(dt_develop_t *dev)
   if(sqlite3_step(stmt) == SQLITE_DONE)
   {
     sqlite3_finalize(stmt);
-    int cnt = 0;
     // count what we found:
     DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "SELECT COUNT(*) FROM memory.history", -1,
                                 &stmt, NULL);
     if(sqlite3_step(stmt) == SQLITE_ROW)
     {
       // if there is anything..
-      cnt = sqlite3_column_int(stmt, 0);
+      const int cnt = sqlite3_column_int(stmt, 0);
       sqlite3_finalize(stmt);
 
       // workaround a sqlite3 "feature". The above statement to insert items into memory.history is complex and in
@@ -1544,7 +1543,7 @@ void dt_dev_read_history_ext(dt_develop_t *dev, const int imgid, gboolean no_ima
     }
 
     hist->num = sqlite3_column_int(stmt, 1);
-    int modversion = sqlite3_column_int(stmt, 2);
+    const int modversion = sqlite3_column_int(stmt, 2);
     assert(strcmp((char *)sqlite3_column_text(stmt, 3), hist->module->op) == 0);
     hist->params = malloc(hist->module->params_size);
     hist->blend_params = malloc(sizeof(dt_develop_blend_params_t));
@@ -1556,8 +1555,8 @@ void dt_dev_read_history_ext(dt_develop_t *dev, const int imgid, gboolean no_ima
     if(history_end_current > dev->history_end) hist->module->iop_order = hist->iop_order;
 
     const void *blendop_params = sqlite3_column_blob(stmt, 6);
-    int bl_length = sqlite3_column_bytes(stmt, 6);
-    int blendop_version = sqlite3_column_int(stmt, 7);
+    const int bl_length = sqlite3_column_bytes(stmt, 6);
+    const int blendop_version = sqlite3_column_int(stmt, 7);
 
     if(blendop_params && (blendop_version == dt_develop_blend_version())
        && (bl_length == sizeof(dt_develop_blend_params_t)))
@@ -1625,11 +1624,6 @@ void dt_dev_read_history_ext(dt_develop_t *dev, const int imgid, gboolean no_ima
       hist->enabled = 1;
     }
 
-    // memcpy(hist->module->params, hist->params, hist->module->params_size);
-    // hist->module->enabled = hist->enabled;
-    // printf("[dev read history] img %d number %d for operation %d - %s params %f %f\n",
-    // sqlite3_column_int(stmt, 0), sqlite3_column_int(stmt, 1), instance, hist->module->op, *(float
-    // *)hist->params, *(((float*)hist->params)+1));
     dev->history = g_list_append(dev->history, hist);
     dev->history_end++;
   }
