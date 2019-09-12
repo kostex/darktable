@@ -7,9 +7,9 @@ add_definitions(-include imageio/storage/imageio_storage_api.h)
 
 set(MODULES disk email gallery latex)
 
-if(FLICKCURL_FOUND)
-	list(APPEND MODULES flickr)
-endif(FLICKCURL_FOUND)
+#if(FLICKCURL_FOUND)
+#	list(APPEND MODULES flickr)
+#endif(FLICKCURL_FOUND)
 
 if (JsonGlib_FOUND)
 	list(APPEND MODULES facebook googlephoto)

@@ -92,7 +92,7 @@ static gchar *dt_loc_init_generic(const char *value, const char *default_value)
 
 void dt_loc_init_user_config_dir(const char *configdir)
 {
-  char *default_config_dir = g_build_filename(g_get_user_config_dir(), "darktable", NULL);
+  char *default_config_dir = g_build_filename(g_get_user_config_dir(), "darktable_bld", NULL);
   darktable.configdir = dt_loc_init_generic(configdir, default_config_dir);
   g_free(default_config_dir);
 }
