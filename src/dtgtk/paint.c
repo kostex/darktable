@@ -1204,26 +1204,26 @@ void dtgtk_cairo_paint_label(cairo_t *cr, gint x, gint y, gint w, gint h, gint f
   switch((flags & 7))
   {
     case 0:
-      cairo_set_source_rgba(cr, 1, 0.0, 0.0, alpha);
+      cairo_set_source_rgba(cr, 0.9, 0.0, 0.0, alpha);
       break; // red
     case 1:
-      cairo_set_source_rgba(cr, 1, 1.0, 0.0, alpha);
+      cairo_set_source_rgba(cr, 0.9, 0.9, 0.0, alpha);
       break; // yellow
     case 2:
-      cairo_set_source_rgba(cr, 0.0, 1, 0.0, alpha);
+      cairo_set_source_rgba(cr, 0.0, 0.9, 0.0, alpha);
       break; // green
     case 3:
-      cairo_set_source_rgba(cr, 0.0, 0.0, 1, alpha);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.9, alpha);
       break; // blue
     case 4:
-      cairo_set_source_rgba(cr, 1, 0.0, 1.0, alpha);
-      break; // purple
+      cairo_set_source_rgba(cr, 0.9, 0.0, 0.9, alpha);
+      break; // magenta
     case 7:
       // don't fill
       cairo_set_source_rgba(cr, 0, 0, 0, 0);
       break;
     default:
-      cairo_set_source_rgba(cr, 1, 1, 1, alpha);
+      cairo_set_source_rgba(cr, 0.75, 0.75, 0.75, alpha);
       def = TRUE;
       break; // gray
   }
@@ -1383,7 +1383,7 @@ void dtgtk_cairo_paint_overlays(cairo_t *cr, gint x, gint y, gint w, gint h, gin
   cairo_scale(cr, s, s);
   cairo_set_line_width(cr, .1);
 
-  dt_draw_star(cr, 0.5, 0.5, 1.0, 0.5);
+  dt_draw_star(cr, 0.5, 0.5, 1.0, 1.0/2.5);
 
   cairo_stroke(cr);
 }

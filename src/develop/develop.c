@@ -689,6 +689,9 @@ void dt_dev_load_image(dt_develop_t *dev, const uint32_t imgid)
   dt_dev_read_history(dev);
 
   dev->first_load = 0;
+
+  // Loading an image means we do some developing and so remove the darktable|problem|history-compress tag
+  dt_history_set_compress_problem(imgid, FALSE);
 }
 
 void dt_dev_configure(dt_develop_t *dev, int wd, int ht)
@@ -1325,9 +1328,9 @@ static void _dev_add_default_modules(dt_develop_t *dev, const int imgid)
   for(GList *modules = dev->iop; modules; modules = g_list_next(modules))
   {
     dt_iop_module_t *module = (dt_iop_module_t *)modules->data;
+
     if(!dt_history_check_module_exists(imgid, module->op)
-       && module->enabled == 1
-       && module->hide_enable_button == 1
+       && module->default_enabled == 1
        && !(module->flags() & IOP_FLAGS_NO_HISTORY_STACK))
     {
       _dev_insert_module(dev, module, imgid);
@@ -1466,6 +1469,8 @@ void dt_dev_read_history_ext(dt_develop_t *dev, const int imgid, gboolean no_ima
   sqlite3_stmt *stmt;
 
   dev->iop_order_version = 0;
+
+  dt_ioppr_convert_onthefly(imgid);
 
   DT_DEBUG_SQLITE3_PREPARE_V2(dt_database_get(darktable.db), "SELECT iop_order_version FROM main.images WHERE id = ?1",
                               -1, &stmt, NULL);
@@ -2233,9 +2238,9 @@ gchar *dt_history_item_get_name_html(const struct dt_iop_module_t *module)
   gchar *label;
   /* create a history button and add to box */
   if(!module->multi_name[0] || strcmp(module->multi_name, "0") == 0)
-    label = g_strdup_printf("<span size=\"larger\">%s</span>", module->name());
+    label = g_strdup_printf("%s", module->name());
   else
-    label = g_strdup_printf("<span size=\"larger\">%s</span> %s", module->name(), module->multi_name);
+    label = g_strdup_printf("%s <span size=\"smaller\">%s</span>", module->name(), module->multi_name);
   return label;
 }
 

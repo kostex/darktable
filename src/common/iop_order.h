@@ -66,6 +66,9 @@ GList *dt_ioppr_iop_order_copy_deep(GList *iop_order_list);
 /** sort two modules by iop_order */
 gint dt_sort_iop_by_order(gconstpointer a, gconstpointer b);
 
+/** convert images history v3->v4 on the fly; returns images history version */
+int dt_ioppr_convert_onthefly(int imgid);
+
 /** returns the iop_order before module_next if module can be moved */
 double dt_ioppr_get_iop_order_before_iop(GList *iop_list, struct dt_iop_module_t *module, struct dt_iop_module_t *module_next,
                                   const int validate_order, const int log_error);
@@ -124,7 +127,7 @@ dt_iop_order_iccprofile_info_t *dt_ioppr_get_iop_work_profile_info(struct dt_iop
  * if matrix cannot be generated it default to linear rec 2020
  * returns the actual profile that has been set
  */
-dt_iop_order_iccprofile_info_t *dt_ioppr_set_pipe_work_profile_info(struct dt_develop_t *dev, struct dt_dev_pixelpipe_t *pipe, 
+dt_iop_order_iccprofile_info_t *dt_ioppr_set_pipe_work_profile_info(struct dt_develop_t *dev, struct dt_dev_pixelpipe_t *pipe,
     const int type, const char *filename, const int intent);
 /** returns a reference to the histogram profile info
  * histogram profile must not be cleanup()
