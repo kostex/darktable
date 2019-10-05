@@ -130,14 +130,14 @@
 @define-color brush_trace alpha(black, .8);
 
 /* Lighttable and film-strip */
-@define-color thumbnail_font_color #666666;
-@define-color thumbnail_bg_color @grey_45; /* area between border and outline */
-@define-color thumbnail_outline_color #fffae6; /* square around image+metadata */
-@define-color thumbnail_selected_font_color #666666;
-@define-color thumbnail_selected_bg_color #88bb00;
-@define-color thumbnail_selected_outline_color #88bb00;
-@define-color thumbnail_hover_font_color @grey_75;;
-@define-color thumbnail_hover_bg_color #ffd633;;
+@define-color thumbnail_font_color @grey_95;
+@define-color thumbnail_bg_color @grey_20; /* area between border and outline */
+@define-color thumbnail_outline_color @grey_05; /* square around image+metadata */
+@define-color thumbnail_selected_font_color @grey_05;
+@define-color thumbnail_selected_bg_color #589b00;
+@define-color thumbnail_selected_outline_color @grey_10;
+@define-color thumbnail_hover_font_color @grey_05;
+@define-color thumbnail_hover_bg_color #cfa603;
 @define-color thumbnail_hover_outline_color #fffae6;
 @define-color filmstrip_bg_color @darkroom_bg_color;
 @define-color culling_selected_border_color @grey_10;
